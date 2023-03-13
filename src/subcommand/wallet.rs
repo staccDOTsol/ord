@@ -22,6 +22,7 @@ pub mod outputs;
 pub mod receive;
 mod restore;
 pub mod sats;
+pub mod candy;
 pub mod send;
 pub(crate) mod transaction_builder;
 pub mod transactions;
@@ -46,6 +47,8 @@ pub(crate) enum Wallet {
   Send(send::Send),
   #[clap(about = "See wallet transactions")]
   Transactions(transactions::Transactions),
+  #[clap(about = "Crank your candy machine")]
+  Candy(candy::Transactions),
   #[clap(about = "List wallet outputs")]
   Outputs,
 }
@@ -62,6 +65,7 @@ impl Wallet {
       Self::Sats(sats) => sats.run(options),
       Self::Send(send) => send.run(options),
       Self::Transactions(transactions) => transactions.run(options),
+      Self::Candy(candy) => candy.run(options),
       Self::Outputs => outputs::run(options),
     }
   }

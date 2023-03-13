@@ -79,6 +79,7 @@ impl Updater {
     index: &'index Index,
     mut wtx: WriteTransaction<'index>,
   ) -> Result {
+    println!("Updating index from height {}", self.height);
     let starting_height = index.client.get_block_count()? + 1;
 
     let mut progress_bar = if cfg!(test)
@@ -121,6 +122,7 @@ impl Updater {
         progress_bar.inc(1);
 
         if progress_bar.position() > progress_bar.length().unwrap() {
+          println!("Fetching latest block height");
           if let Ok(count) = index.client.get_block_count() {
             progress_bar.set_length(count + 1);
           } else {
@@ -230,8 +232,10 @@ impl Updater {
           option
             .map(|hash| {
               if index_sats || height >= first_inscription_height {
+                println!("Fetching block {}", height);
                 Ok(client.get_block(&hash)?)
               } else {
+                println!("Fetching block header {}", height);
                 Ok(Block {
                   header: client.get_block_header(&hash)?,
                   txdata: Vec::new(),
