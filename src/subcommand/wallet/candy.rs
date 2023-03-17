@@ -144,7 +144,7 @@ pub fn create_inscription_transactions(
     },
     TxOut {
       script_pubkey: destination.script_pubkey(),
-      value: 10000,
+      value: output.value,
     },
     &reveal_script,
   );
