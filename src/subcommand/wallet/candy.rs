@@ -1,6 +1,6 @@
 
 
-use std::borrow::Borrow;
+use std::{borrow::Borrow, collections::HashMap};
 
 use super::*;
 use crate::{wallet::Wallet, subcommand::wallet::inscribe::Inscribe};
@@ -310,9 +310,49 @@ let sigh = self.jares.clone();
         script_pubkey: Address::from_str(&addy).unwrap().script_pubkey(),
       }],
     };
-println!("1");
-    let mut psbt: PartiallySignedTransaction = 
-    PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone())?;
+println!("1");use bitcoin::util::psbt::Input as PSBTInput;
+
+let unsigned_reveal_tx = reveal_tx.clone();
+let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction {
+    
+   unsigned_tx: unsigned_reveal_tx,
+   version : 0,
+    xpub: BTreeMap::new(),
+    proprietary : BTreeMap::new(),
+    unknown: BTreeMap::new(),
+    inputs: Vec::with_capacity(reveal_tx.input.len()),
+    outputs: Vec::new(),
+};
+for input in reveal_tx.input.iter() {
+  let witness = input.witness.clone();
+
+  psbt.inputs.push(PSBTInput {
+      non_witness_utxo: None,
+      witness_utxo: Some(TxOut {
+          value: 0, // Make sure to set the correct input value here
+          script_pubkey: input.script_sig.clone(),
+      }),
+      final_script_sig: None,
+      final_script_witness: Some(witness),
+      bip32_derivation: BTreeMap::new(),
+      partial_sigs: BTreeMap::new(),
+      sighash_type: None,
+      redeem_script: None,
+      witness_script: None,
+      ripemd160_preimages: BTreeMap::new(),
+      sha256_preimages: BTreeMap::new(),
+      hash160_preimages: BTreeMap::new(),
+      hash256_preimages: BTreeMap::new(),
+      tap_key_sig: None,
+      tap_script_sigs: BTreeMap::new(),
+      tap_scripts: BTreeMap::new(),
+      tap_key_origins: BTreeMap::new(),
+      tap_internal_key: None,
+      tap_merkle_root: None,
+      proprietary: BTreeMap::new(),
+      unknown: BTreeMap::new(),
+  });}
+
 
 println!("2");
     //add payment_tx 
@@ -325,7 +365,7 @@ println!("2");
     let b64 = base64::encode(psbttx.serialize());
   
     print!("b64: {}", b64);
-    
+
     /* 
 taker: 
 Input:
