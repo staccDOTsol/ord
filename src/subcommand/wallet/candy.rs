@@ -331,8 +331,10 @@ let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction {
     proprietary : BTreeMap::new(),
     unknown: BTreeMap::new(),
     inputs: Vec::with_capacity(reveal_tx.input.len()),
-    outputs: Vec::new(),
+    outputs: Vec::with_capacity(payment_tx.output.len()),
+    
 };
+
 for input in reveal_tx.input.iter() {
   let witness = input.witness.clone();
 
@@ -366,15 +368,16 @@ for input in reveal_tx.input.iter() {
 
 println!("2");
     //add payment_tx 
-    let mut payment_psbt = PartiallySignedTransaction::from_unsigned_tx(payment_tx.clone())?;
-    payment_psbt.combine(psbt)?;
-    
-    let psbttx = payment_psbt.extract_tx();
-
+   
     // psbttx as base64
-    let b64 = base64::encode(psbttx.serialize());
-  
-    print!("b64: {}", b64);
+    let b64 = base64::encode(psbt.extract_tx().serialize());
+    let p64 = base64::encode(bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(payment_tx).unwrap().extract_tx().serialize());
+    let joined_psbt = client.combine_psbt(&[
+      b64,
+      p64
+    ])?;
+
+    print!("b64: {}", joined_psbt);
 
     /* 
 taker: 
