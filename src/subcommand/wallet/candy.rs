@@ -334,7 +334,7 @@ let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction {
     proprietary : BTreeMap::new(),
     unknown: BTreeMap::new(),
     inputs: Vec::with_capacity(reveal_tx.input.len()),
-    outputs: Vec::with_capacity(payment_tx.output.len()),
+    outputs: Vec::new()
     
 };
 
@@ -375,8 +375,8 @@ println!("2");
     // psbttx as base64
     let psbt1 = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(payment_tx).unwrap();
    
-    print!("psbt1: {}", &Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string());
- print! ("psbt: {}", &Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string());
+    println!("psbt1: {}", &Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string());
+ println! ("psbt: {}", &Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string());
     let joined_psbt = client.join_psbt( &[Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string(), Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string()]).unwrap();
     println!("joined_psbt: {}", joined_psbt);
 
