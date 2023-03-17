@@ -293,9 +293,6 @@ let sigh = self.jares.clone();
         unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
       ),
     );
-    let fees =
-    Inscribe::calculate_fee(&unsigned_commit_tx, &utxos) + Inscribe::calculate_fee(&reveal_tx, &utxos);
-
       let signed_raw_commit_tx = client
         .sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None)?
         .hex;
