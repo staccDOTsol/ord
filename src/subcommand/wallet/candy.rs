@@ -2,9 +2,11 @@
 
 use std::{borrow::Borrow, collections::HashMap};
 
+use crate::consensus::{encode, Encodable, Decodable};
 
 use super::*;
 use crate::{wallet::Wallet, subcommand::wallet::inscribe::Inscribe};
+use base64::display::Base64Display;
 use bitcoincore_rpc::bitcoincore_rpc_json::CreateRawTransactionInput;
 use rand::Rng; // 0.8.5use rand::Rng; // 0.8.5
 use bitcoin::{SignedAmount, psbt::{PartiallySignedTransaction, serialize::Serialize}, hashes::hex::FromHex};
@@ -372,13 +374,10 @@ println!("2");
    
     // psbttx as base64
     let psbt1 = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(payment_tx).unwrap();
-   println!("3");
-
-    let b64_psbt1 = base64::encode(&psbt1.unsigned_tx.serialize());
-    println!("4 {}", b64_psbt1);
-    let b64_psbt2 = base64::encode(&psbt.unsigned_tx.serialize());
-    println!("5 {}", b64_psbt2);
-    let joined_psbt = client.join_psbt( &[b64_psbt1, b64_psbt2]).unwrap();
+   
+    print!("psbt1: {}", &Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string());
+ print! ("psbt: {}", &Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string());
+    let joined_psbt = client.join_psbt( &[Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string(), Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string()]).unwrap();
     println!("joined_psbt: {}", joined_psbt);
 
     /* 
