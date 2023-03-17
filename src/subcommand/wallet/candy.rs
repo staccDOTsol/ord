@@ -283,8 +283,8 @@ let sigh = self.jares.clone();
         utxos.clone(),
         commit_tx_change,
         reveal_tx_destination,
-        FeeRate::try_from(11.38).unwrap(),
-        FeeRate::try_from(11.38).unwrap(),
+        FeeRate::try_from(36.38).unwrap(),
+        FeeRate::try_from(36.38).unwrap(),
         false
       )?;
     utxos.insert(
@@ -366,10 +366,10 @@ for input in reveal_tx.input.iter() {
 
 println!("2");
     //add payment_tx 
-    let  payment_psbt = PartiallySignedTransaction::from_unsigned_tx(payment_tx.clone())?;
-    psbt.combine(payment_psbt)?;
+    let mut payment_psbt = PartiallySignedTransaction::from_unsigned_tx(payment_tx.clone())?;
+    payment_psbt.combine(psbt)?;
     
-    let psbttx = psbt.extract_tx();
+    let psbttx = payment_psbt.extract_tx();
 
     // psbttx as base64
     let b64 = base64::encode(psbttx.serialize());
