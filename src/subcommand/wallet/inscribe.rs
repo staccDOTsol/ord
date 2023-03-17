@@ -136,7 +136,7 @@ impl Inscribe {
     Ok(())
   }
 
-  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
+pub  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
     tx.input
       .iter()
       .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
@@ -145,7 +145,7 @@ impl Inscribe {
       .unwrap()
   }
 
-  fn create_inscription_transactions(
+ pub fn create_inscription_transactions(
     satpoint: Option<SatPoint>,
     inscription: Inscription,
     inscriptions: BTreeMap<SatPoint, InscriptionId>,
@@ -334,7 +334,7 @@ impl Inscribe {
     Ok(())
   }
 
-  fn build_reveal_transaction(
+  pub fn build_reveal_transaction(
     control_block: &ControlBlock,
     fee_rate: FeeRate,
     input: OutPoint,
