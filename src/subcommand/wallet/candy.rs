@@ -302,7 +302,8 @@ let sigh = self.jares.clone();
           vout: 0,
         },
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        
+        witness: Witness::new(),
+        script_sig: Script::new(),
       }],
       output: vec![TxOut {
         value: self.satoshis as u64,
