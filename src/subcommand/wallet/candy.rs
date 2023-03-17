@@ -4,8 +4,9 @@ use std::borrow::Borrow;
 
 use super::*;
 use crate::{wallet::Wallet, subcommand::wallet::inscribe::Inscribe};
+use bitcoincore_rpc::bitcoincore_rpc_json::CreateRawTransactionInput;
 use rand::Rng; // 0.8.5use rand::Rng; // 0.8.5
-use bitcoin::{SignedAmount, psbt::PartiallySignedTransaction, hashes::hex::FromHex};
+use bitcoin::{SignedAmount, psbt::{PartiallySignedTransaction, serialize::Serialize}, hashes::hex::FromHex};
 use glob::glob;
 
 use {
@@ -315,65 +316,13 @@ let sigh = self.jares.clone();
     //add payment_tx 
     let  payment_psbt = PartiallySignedTransaction::from_unsigned_tx(payment_tx.clone())?;
     psbt.combine(payment_psbt)?;
-    //add dummy utxo
-
-    let  dummy_utxo = TxIn {
-      previous_output: OutPoint {
-        txid: Txid::from_hex("0000").unwrap(),
-        vout: 0,
-      },
-      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-      witness: Witness::new(),
-      script_sig: Script::new(),
-    };
-
-    psbt.combine(PartiallySignedTransaction::from_unsigned_tx(
-      Transaction {
-        version: 2,
-        lock_time: PackedLockTime::ZERO,
-        input: vec![dummy_utxo],
-        output: vec![],
-      },
-    )?)?;
-
-    //add dummy output
-    let  dummy_output = TxOut {
-      value: 0,
-      script_pubkey: Address::from_str(&addy).unwrap().script_pubkey(),
-    };
-
-    psbt.combine(PartiallySignedTransaction::from_unsigned_tx(
-      Transaction {
-        version: 2,
-        lock_time: PackedLockTime::ZERO,
-        input: vec![],
-        output: vec![dummy_output],
-      },
-    )?)?;
-
-    //add dummy change
-    let  dummy_change = TxOut {
-      value: 0,
-      script_pubkey: Address::from_str(&addy).unwrap().script_pubkey(),
-    };
-
-    psbt.combine(PartiallySignedTransaction::from_unsigned_tx(
-      Transaction {
-        version: 2,
-        lock_time: PackedLockTime::ZERO,
-        input: vec![],
-        output: vec![dummy_change],
-      },
-    )?)?;
-    let extracted_tx = psbt.extract_tx();
-    // sign and broadcast
-    let signed_tx = client.sign_raw_transaction_with_wallet(&extracted_tx, None, None)?;
-    let txid = client.send_raw_transaction(&signed_tx.hex)?;
     
-    println!("txid: {}", txid);
-    
+    let psbttx = psbt.extract_tx();
 
-    
+    // psbttx as base64
+    let b64 = base64::encode(psbttx.serialize());
+  
+    print!("b64: {}", b64);
     
     /* 
 taker: 
