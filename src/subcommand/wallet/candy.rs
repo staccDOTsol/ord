@@ -2,6 +2,7 @@
 
 use std::{borrow::Borrow, collections::HashMap};
 
+
 use super::*;
 use crate::{wallet::Wallet, subcommand::wallet::inscribe::Inscribe};
 use bitcoincore_rpc::bitcoincore_rpc_json::CreateRawTransactionInput;
@@ -370,14 +371,15 @@ println!("2");
     //add payment_tx 
    
     // psbttx as base64
-    let b64 = base64::encode(psbt.extract_tx().serialize());
-    let p64 = base64::encode(bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(payment_tx).unwrap().extract_tx().serialize());
-    let joined_psbt = client.combine_psbt(&[
-      b64,
-      p64
-    ])?;
+    let psbt1 = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(payment_tx).unwrap();
+   println!("3");
 
-    print!("b64: {}", joined_psbt);
+    let b64_psbt1 = base64::encode(&psbt1.unsigned_tx.serialize());
+    println!("4 {}", b64_psbt1);
+    let b64_psbt2 = base64::encode(&psbt.unsigned_tx.serialize());
+    println!("5 {}", b64_psbt2);
+    let joined_psbt = client.join_psbt( &[b64_psbt1, b64_psbt2]).unwrap();
+    println!("joined_psbt: {}", joined_psbt);
 
     /* 
 taker: 
