@@ -224,7 +224,7 @@ pub fn create_inscription_transactions(
                     println!("winner winner chickum dinner");
                     let mut dont = false;
                     let addy = tx.detail.address.as_ref().unwrap().to_string();
-                    let num = rand::thread_rng().gen_range(0..77);
+                    let num = rand::thread_rng().gen_range(0..6);
 let sigh = self.jares.clone();
                        for j in sigh {
                            if j == tx.info.txid.to_string() {
