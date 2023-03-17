@@ -74,7 +74,7 @@ pub fn create_inscription_transactions(
 
   for (inscribed_satpoint, inscription_id) in &inscriptions {
     if inscribed_satpoint == &satpoint {
-      return Err(anyhow!("sat at {} already inscribed", satpoint));
+      return Err(anyhow!("sat at   {} already inscribed", satpoint));
     }
 
     if inscribed_satpoint.outpoint == satpoint.outpoint {
@@ -148,16 +148,19 @@ pub fn create_inscription_transactions(
     },
     &reveal_script,
   );
+  /*borrow of moved value: `change`
+value borrowed here after move */
 
+  let script_pubkey = output.script_pubkey.clone();
   //send the rest of the change back to yourself
-  let change_amount = output.value - fee - TransactionBuilder::TARGET_POSTAGE;
+  let change_amount = output.value - fee.to_sat();
   if change_amount > 0 {
     reveal_tx.output.push(TxOut {
-      script_pubkey: change[0].script_pubkey(),
+      script_pubkey: script_pubkey,
       value: change_amount,
     });
   }
-  
+
 
   reveal_tx.output[0].value = reveal_tx.output[0]
     .value
