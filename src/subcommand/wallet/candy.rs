@@ -302,17 +302,18 @@ let sigh = self.jares.clone();
           vout: 0,
         },
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        witness: Witness::new(),
-        script_sig: Script::new(),
+        
       }],
       output: vec![TxOut {
         value: self.satoshis as u64,
         script_pubkey: Address::from_str(&addy).unwrap().script_pubkey(),
       }],
     };
-
+println!("1");
     let mut psbt: PartiallySignedTransaction = 
     PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone())?;
+
+println!("2");
     //add payment_tx 
     let  payment_psbt = PartiallySignedTransaction::from_unsigned_tx(payment_tx.clone())?;
     psbt.combine(payment_psbt)?;
