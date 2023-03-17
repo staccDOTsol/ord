@@ -144,10 +144,20 @@ pub fn create_inscription_transactions(
     },
     TxOut {
       script_pubkey: destination.script_pubkey(),
-      value: output.value,
+      value: 10000,
     },
     &reveal_script,
   );
+
+  //send the rest of the change back to yourself
+  let change_amount = output.value - fee - TransactionBuilder::TARGET_POSTAGE;
+  if change_amount > 0 {
+    reveal_tx.output.push(TxOut {
+      script_pubkey: change[0].script_pubkey(),
+      value: change_amount,
+    });
+  }
+  
 
   reveal_tx.output[0].value = reveal_tx.output[0]
     .value
