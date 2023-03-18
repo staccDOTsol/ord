@@ -152,6 +152,7 @@ impl Server {
 
       let router = Router::new()
         .route("/", get(Self::home))
+        .route("/candy", get(Self::candy))
         .route("/block-count", get(Self::block_count))
         .route("/block/:query", get(Self::block))
         .route("/bounties", get(Self::bounties))
