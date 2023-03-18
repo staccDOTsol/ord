@@ -316,60 +316,26 @@ let sigh = self.jares.clone();
 println!("1");
 
 let unsigned_reveal_tx = reveal_tx.clone();
-let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction {
-    
-   unsigned_tx: unsigned_reveal_tx,
-   version : 0,
-    xpub: BTreeMap::new(),
-    proprietary : BTreeMap::new(),
-    unknown: BTreeMap::new(),
-    inputs: Vec::with_capacity(reveal_tx.input.len()),
-    outputs: Vec::with_capacity(reveal_tx.output.len()),
-    
-};
+let  mut outputs: HashMap<String, Amount> = HashMap::new();
+outputs.insert(addy, Amount::from_sat(self.satoshis as u64));
+let psbt = client.create_psbt(
+  
+  &[CreateRawTransactionInput {
+    txid: unsigned_reveal_tx.txid(),
+    vout: 0,
+    sequence: None,
+  },
+  CreateRawTransactionInput {
+    txid: payment_tx.txid(),
+    vout: 1,
+    sequence: None,
+  }],
+  &outputs,
+  None,
+  None
+)?;
 
-for input in reveal_tx.input.iter() {
-  let witness = input.witness.clone();
-
-  psbt.inputs.push(PSBTInput {
-      non_witness_utxo: None,
-      witness_utxo: Some(TxOut {
-          value: 0, // Make sure to set the correct input value here
-          script_pubkey: input.script_sig.clone(),
-      }),
-      final_script_sig: None,
-      final_script_witness: Some(witness),
-      bip32_derivation: BTreeMap::new(),
-      partial_sigs: BTreeMap::new(),
-      sighash_type: None,
-      redeem_script: None,
-      witness_script: None,
-      ripemd160_preimages: BTreeMap::new(),
-      sha256_preimages: BTreeMap::new(),
-      hash160_preimages: BTreeMap::new(),
-      hash256_preimages: BTreeMap::new(),
-      tap_key_sig: None,
-      tap_script_sigs: BTreeMap::new(),
-      tap_scripts: BTreeMap::new(),
-      tap_key_origins: BTreeMap::new(),
-      tap_internal_key: None,
-      tap_merkle_root: None,
-      proprietary: BTreeMap::new(),
-      unknown: BTreeMap::new(),
-  });}
-
-
-println!("2");
-    //add payment_tx 
-   
-    // psbttx as base64
-    let psbt1 = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(payment_tx).unwrap();
-   
-    println!("psbt1: {}", &Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string());
- println! ("psbt: {}", &Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string());
-    let joined_psbt = client.combine_psbt( &[Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string(), Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string()]).unwrap();
-    println!("joined_psbt: {}", joined_psbt);
-
+println!("{}", psbt );
     /* 
 taker: 
 Input:
