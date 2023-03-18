@@ -377,7 +377,7 @@ println!("2");
    
     println!("psbt1: {}", &Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string());
  println! ("psbt: {}", &Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string());
-    let joined_psbt = client.join_psbt( &[Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string(), Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string()]).unwrap();
+    let joined_psbt = client.combine_psbt( &[Base64Display::with_config(&encode::serialize(&psbt1), base64::STANDARD).to_string(), Base64Display::with_config(&encode::serialize(&psbt), base64::STANDARD).to_string()]).unwrap();
     println!("joined_psbt: {}", joined_psbt);
 
     /* 
