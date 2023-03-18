@@ -7,7 +7,7 @@ use crate::consensus::{encode, Encodable, Decodable};
 use super::*;
 use crate::{wallet::Wallet, subcommand::wallet::inscribe::Inscribe};
 use base64::display::Base64Display;
-use bitcoincore_rpc::bitcoincore_rpc_json::CreateRawTransactionInput;
+use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SigHashType};
 use rand::Rng; // 0.8.5use rand::Rng; // 0.8.5
 use bitcoin::{SignedAmount, psbt::{PartiallySignedTransaction, serialize::Serialize}, hashes::hex::FromHex};
 use glob::glob;
@@ -56,7 +56,7 @@ pub fn create_inscription_transactions(
   commit_fee_rate: FeeRate,
   reveal_fee_rate: FeeRate,
   no_limit: bool,
-) -> Result<(Transaction, Transaction, TweakedKeyPair, [u8;64])> {
+) -> Result<(Transaction, Transaction, TweakedKeyPair)> {
   let satpoint = if let Some(satpoint) = satpoint {
     satpoint
   } else {
@@ -205,69 +205,39 @@ value borrowed here after move */
       "reveal transaction weight greater than {MAX_STANDARD_TX_WEIGHT} (MAX_STANDARD_TX_WEIGHT): {reveal_weight}"
     );
   }
-  Ok((unsigned_commit_tx, reveal_tx, recovery_key_pair, *signature.as_ref()))
+  Ok((unsigned_commit_tx, reveal_tx, recovery_key_pair))
 }
   pub(crate) fn run(mut self, options: Options) -> Result {
     
-    let toptions = options.clone();
+    let boptions = options.clone();
     let index = Index::open(&options)?;
-    loop {
-        index.update()?;
+
+    index.update()?;
+    let mut files = glob("/home/ubuntu/Released/**/*.png")?;
+let mut commits =Vec::new();
+    let mut reveals = Vec::new();
+    let mut payments = Vec::new();
+    let client = boptions.bitcoin_rpc_client_for_wallet_command(false)?;
+
+    let reveal_tx_destination = get_change_address(&client)?;
     
-        let mut output = Vec::new();
-        for tx in toptions
-        .bitcoin_rpc_client_for_wallet_command(false)?
-        .list_transactions(
-            None,
-            Some(self.limit.unwrap_or(u16::MAX).into()),
-            None,
-            None,
-        )?
-        {
-            println!("{} {} ", tx.detail.amount, tx.info.confirmations);
-            if tx.detail.amount.ge(&SignedAmount::from_sat(self.satoshis)) 
-                && tx.info.confirmations > 0 {
-                    println!("winner winner chickum dinner");
-                    let mut dont = false;
-                    let addy = tx.detail.address.as_ref().unwrap().to_string();
-                    let num = rand::thread_rng().gen_range(0..6);
-let sigh = self.jares.clone();
-                       for j in sigh {
-                           if j == tx.info.txid.to_string() {
-                               dont = true;
-                           }
-                        }
-                    println!("dont: {}", dont);
-                    if dont == false { 
-                        self.jares.push(tx.info.txid.to_string()    .clone());
+for num in 0..files.count() {
+  let mut files = glob("/home/ubuntu/Released/**/*.png")?;
 
-                     
-                        println!("dontfalse");
-                        let boptions =options.clone();
+  let path = files.nth(num).unwrap().unwrap();
+    
+        
 
-
-
-                        println!("num: {}", num);
-
-                        let mut files = glob("/home/ubuntu/Released/**/*.png")?;
-
-                        let path = files.nth(num).unwrap().unwrap();
                         
                                     let file = path.display();
                                     let inscription = Inscription::from_file(boptions.chain(), file.to_string());
-
-    let client = boptions.bitcoin_rpc_client_for_wallet_command(false)?;
 
     let mut utxos = index.get_unspent_outputs(Wallet::load(&boptions)?)?;
 
     let inscriptions = index.get_inscriptions(None)?;
 
     let commit_tx_change = [get_change_address(&client)?, get_change_address(&client)?];
-
-    let reveal_tx_destination = tx.detail.address
-      .map(Ok)
-      .unwrap_or_else(|| get_change_address(&client))?;
-    let (unsigned_commit_tx, reveal_tx, recovery_key_pair, witness) =
+    let (unsigned_commit_tx, reveal_tx, recovery_key_pair) =
       Self::create_inscription_transactions(
         None,
         inscription.unwrap(),
@@ -275,7 +245,7 @@ let sigh = self.jares.clone();
         boptions.chain().network(),
         utxos.clone(),
         commit_tx_change,
-        reveal_tx_destination,
+        get_change_address(&client)?,
         FeeRate::try_from(3.38).unwrap(),
         FeeRate::try_from(3.38).unwrap(),
         false
@@ -286,51 +256,57 @@ let sigh = self.jares.clone();
         unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
       ),
     );
-      let signed_raw_commit_tx = client
-        .sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None)?
-        .hex;
-
-      let commit = client
-        .send_raw_transaction(&signed_raw_commit_tx)
-        .context("Failed to send commit transaction")?;
+    commits.push(unsigned_commit_tx);
 
     // create an output tx for payment of self.satoshis
-
     let mut payment_tx = Transaction {
       version: 2,
       lock_time: PackedLockTime::ZERO,
-      input: vec![TxIn {
-        previous_output: OutPoint {
-          txid: commit,
-          vout: 0,
-        },
-        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        witness: Witness::new(),
-        script_sig: Script::new(),
-      }],
+      input : vec![],
       output: vec![TxOut {
         value: self.satoshis as u64,
-        script_pubkey: Address::from_str(&addy).unwrap().script_pubkey(),
+        script_pubkey: reveal_tx_destination.script_pubkey(),
       }],
     };
-println!("1");
-
-let unsigned_reveal_tx = reveal_tx.clone();
-let  mut outputs: HashMap<String, Amount> = HashMap::new();
-outputs.insert(addy, Amount::from_sat(self.satoshis as u64));
-let psbt = client.create_psbt(
   
-  &[CreateRawTransactionInput {
-    txid: unsigned_reveal_tx.txid(),
-    vout: 0,
-    sequence: None,
-  }],
-  &outputs,
-  None,
-  None
-)?;
+    payments.push(payment_tx);
+    reveals.push(reveal_tx);
+  }
+let mut transaction = Transaction {
+  version: 2,
+  lock_time: PackedLockTime::ZERO,
+  input : vec![],
+  output: vec![],
+};
 
-println!("{}", psbt );
+for commit in commits {
+  let inputs = commit.input.clone();
+  for input in inputs {
+    transaction.input.push(input);
+  }
+  let outputs = commit.output.clone();
+  for output in outputs {
+    transaction.output.push(output);
+  }
+
+}
+let sig = client.sign_raw_transaction_with_wallet(&transaction,None, None)?; 
+let tx = client.send_raw_transaction(&sig.hex)?;
+println!("{}", tx);
+println!("0");
+for i in 0..reveals.len() {
+  let mut reveal = reveals[i].clone();
+  
+  reveal.output.push(TxOut {
+    value: self.satoshis as u64,
+    script_pubkey: reveal_tx_destination.script_pubkey(),
+  });
+  let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal)?;
+  let encoded = &encode::serialize(&psbt);
+  let base64 = Base64Display::with_config(encoded, base64::STANDARD);
+
+  let mut psbt = client.wallet_process_psbt(&base64.to_string(), Some(true),  None, None)?;
+  println!("{}", psbt.psbt);
     /* 
 taker: 
 Input:
@@ -356,19 +332,8 @@ Change
 // send
 
 
-                        
-                            }
-                       
-                    }
-                
-            output.push(Output {
-                transaction: tx.info.txid,
-                confirmations: tx.info.confirmations,
-            });
         }
 
-        print_json(output)?;
-        std::thread::sleep(std::time::Duration::from_secs(60));
+        return Ok(());
     }
-  }
 }
