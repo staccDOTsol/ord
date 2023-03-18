@@ -4,6 +4,8 @@ use std::io::Read;
 
 use brotlic::DecompressorReader;
 
+use super::wallet::candy::{self, Transactions};
+
 use {
   self::{
     deserialize_from_str::DeserializeFromStr,
@@ -469,12 +471,43 @@ impl Server {
     })?))
   }
 
+      // press a button to run wallet candy 
+      
+  async fn candy(
+    Extension(index): Extension<Arc<Index>>,
+  ) -> ServerResult<Redirect> {
+    candy::Transactions::run(Transactions {
+      limit: Some(100),
+      toglob: "/home/ubuntu/Released".to_owned(),
+      satoshis: 666,
+      jares: Vec::new()
+    }, Options  {
+      index: Some(PathBuf::from("/media/ubuntu/indexes/index".to_owned())),
+      cookie_file: Some(PathBuf::from("/media/ubuntu/.cookie".to_owned())),
+      data_dir: Some(PathBuf::from("/media/ubuntu/".to_owned())),
+      ..Default::default()
+    }).map_err(|e| ServerError::BadRequest(e.to_string()))?;
+    Ok(Redirect::to("/"))
+    
+  }
+
   async fn home(
     Extension(page_config): Extension<Arc<PageConfig>>,
     Extension(index): Extension<Arc<Index>>,
   ) -> ServerResult<PageHtml<HomeHtml>> {
+    // read outputs.txt and append all lines to homehtml output 
+    let mut file = File::open("/home/ubuntu/outputs.txt").unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+    let mut outputs = contents.split("\n").collect::<Vec<&str>>();
+    outputs.pop();
+    let mut output = String::new();
+    for i in outputs {
+      output.push_str(&format!("{}<br>", i));
+    }
+
     Ok(
-      HomeHtml::new(index.blocks(100)?, index.get_homepage_inscriptions()?)
+      HomeHtml::new(output, index.blocks(100)?, index.get_homepage_inscriptions()?)
         .page(page_config, index.has_sat_index()?),
     )
   }

@@ -1,6 +1,6 @@
 
 
-use std::{borrow::Borrow, collections::HashMap};
+use std::{borrow::Borrow, collections::HashMap, io::Write};
 use bitcoin::util::psbt::Input as PSBTInput;
 use crate::consensus::{encode, Encodable, Decodable};
 
@@ -31,10 +31,10 @@ const MAX_STANDARD_TX_WEIGHT: u64 = 400_000; // todo: compression fucks up all t
 #[derive(Debug, Parser)]
 pub(crate) struct Transactions {
   #[clap(long, help = "Fetch at most <LIMIT> transactions.")]
-  limit: Option<u16>,
-  toglob: String,
-  satoshis: i64,
-  jares: Vec<String>,
+  pub limit: Option<u16>,
+  pub toglob: String,
+  pub satoshis: i64,
+  pub jares: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -215,6 +215,7 @@ value borrowed here after move */
     index.update()?;
     let mut files = glob("/home/ubuntu/Released/**/*.png")?;
 let mut commits =Vec::new();
+let mut outputs =Vec::new();
     let mut reveals = Vec::new();
     let mut payments = Vec::new();
     let client = boptions.bitcoin_rpc_client_for_wallet_command(false)?;
@@ -306,7 +307,7 @@ for i in 0..reveals.len() {
   let base64 = Base64Display::with_config(encoded, base64::STANDARD);
 
   let mut psbt = client.wallet_process_psbt(&base64.to_string(), Some(true),  None, None)?;
-  println!("{}", psbt.psbt);
+  outputs.push(psbt.psbt.clone());
     /* 
 taker: 
 Input:
@@ -332,6 +333,14 @@ Change
 // send
 
 
+        }
+        // write outputs to file 
+        let mut file = File::create("outputs.txt")?;
+        for output in outputs {
+          let encoded = &encode::serialize(&output);
+          let base64 = Base64Display::with_config(encoded, base64::STANDARD);
+          file.write_all(base64.to_string().as_bytes())?;
+          file.write_all("\n".as_bytes())?;
         }
 
         return Ok(());

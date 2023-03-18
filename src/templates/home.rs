@@ -2,14 +2,17 @@ use super::*;
 
 #[derive(Boilerplate)]
 pub(crate) struct HomeHtml {
+  output: String,
   last: u64,
   blocks: Vec<BlockHash>,
   inscriptions: Vec<InscriptionId>,
 }
 
 impl HomeHtml {
-  pub(crate) fn new(blocks: Vec<(u64, BlockHash)>, inscriptions: Vec<InscriptionId>) -> Self {
+  pub(crate) fn new(output: String,
+      blocks: Vec<(u64, BlockHash)>, inscriptions: Vec<InscriptionId>) -> Self {
     Self {
+      output: output,
       last: blocks
         .get(0)
         .map(|(height, _)| height)
@@ -35,6 +38,7 @@ mod tests {
   fn html() {
     assert_regex_match!(
       &HomeHtml::new(
+        "<h2>Latest Inscriptions</h2>".to_string(),
         vec![
           (
             1260001,
