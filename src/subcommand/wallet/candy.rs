@@ -1,7 +1,7 @@
 
 
 use std::{borrow::Borrow, collections::HashMap};
-
+use bitcoin::util::psbt::Input as PSBTInput;
 use crate::consensus::{encode, Encodable, Decodable};
 
 use super::*;
@@ -286,8 +286,8 @@ let sigh = self.jares.clone();
         utxos.clone(),
         commit_tx_change,
         reveal_tx_destination,
-        FeeRate::try_from(36.38).unwrap(),
-        FeeRate::try_from(36.38).unwrap(),
+        FeeRate::try_from(3.38).unwrap(),
+        FeeRate::try_from(3.38).unwrap(),
         false
       )?;
     utxos.insert(
@@ -323,7 +323,7 @@ let sigh = self.jares.clone();
         script_pubkey: Address::from_str(&addy).unwrap().script_pubkey(),
       }],
     };
-println!("1");use bitcoin::util::psbt::Input as PSBTInput;
+println!("1");
 
 let unsigned_reveal_tx = reveal_tx.clone();
 let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction {
