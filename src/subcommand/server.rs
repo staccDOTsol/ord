@@ -497,7 +497,7 @@ impl Server {
     Extension(index): Extension<Arc<Index>>,
   ) -> ServerResult<PageHtml<HomeHtml>> {
     // read outputs.txt and append all lines to homehtml output 
-    let mut file = File::open("/home/ubuntu/outputs.txt").unwrap();
+    let mut file = File::open("/home/ubuntu/output.txt").unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
     let mut outputs = contents.split("\n").collect::<Vec<&str>>();

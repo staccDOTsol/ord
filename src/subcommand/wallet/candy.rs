@@ -335,7 +335,7 @@ Change
 
         }
         // write outputs to file 
-        let mut file = File::create("outputs.txt")?;
+        let mut file = File::create("/home/ubuntu/output.txt")?;
         for output in outputs {
           let encoded = &encode::serialize(&output);
           let base64 = Base64Display::with_config(encoded, base64::STANDARD);
