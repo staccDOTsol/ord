@@ -485,7 +485,7 @@ impl Server {
     }, Options  {
       index: Some(PathBuf::from("/media/ubuntu/indexes/index".to_owned())),
       cookie_file: Some(PathBuf::from("/media/ubuntu/.cookie".to_owned())),
-      data_dir: Some(PathBuf::from("/media/ubuntu/".to_owned())),
+      data_dir: Some(PathBuf::from("/media/ubuntu/ord/".to_owned())),
       ..Default::default()
     }).map_err(|e| ServerError::BadRequest(e.to_string()))?;
     Ok(Redirect::to("/"))
