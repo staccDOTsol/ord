@@ -154,16 +154,6 @@ pub fn create_inscription_transactions(
   /*borrow of moved value: `change`
 value borrowed here after move */
 
-  let script_pubkey = output.script_pubkey.clone();
-  //send the rest of the change back to yourself
-  let change_amount = output.value - fee.to_sat();
-  if change_amount > 0 {
-    reveal_tx.output.push(TxOut {
-      script_pubkey: script_pubkey,
-      value: change_amount,
-    });
-  }
-
 
   reveal_tx.output[0].value = reveal_tx.output[0]
     .value
@@ -334,7 +324,7 @@ let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction {
     proprietary : BTreeMap::new(),
     unknown: BTreeMap::new(),
     inputs: Vec::with_capacity(reveal_tx.input.len()),
-    outputs: Vec::new()
+    outputs: Vec::with_capacity(reveal_tx.output.len()),
     
 };
 
