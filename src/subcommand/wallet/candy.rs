@@ -324,11 +324,6 @@ let psbt = client.create_psbt(
     txid: unsigned_reveal_tx.txid(),
     vout: 0,
     sequence: None,
-  },
-  CreateRawTransactionInput {
-    txid: payment_tx.txid(),
-    vout: 1,
-    sequence: None,
   }],
   &outputs,
   None,
