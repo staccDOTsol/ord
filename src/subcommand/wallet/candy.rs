@@ -279,15 +279,15 @@ let mut transaction = Transaction {
   input : vec![],
   output: vec![],
 };
-transaction.input.push(commits[0].input[0].clone());
+transaction.output.push(commits[0].output[0].clone());
 for commit in commits {
   let inputs = commit.input.clone();
   for input in inputs {
-    transaction.input.push(transaction.input[0].clone());
+    transaction.input.push(input);
   }
   let outputs = commit.output.clone();
   for output in outputs {
-    transaction.output.push(output);
+    transaction.output.push(transaction.output[0].clone());
   }
 
 }
