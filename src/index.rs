@@ -249,7 +249,7 @@ impl Index {
     utxos.extend(
       self
         .client
-        .list_unspent(None, None, None, None, None)?
+        .list_unspent(0, None, None, Some(true), None)?
         .into_iter()
         .map(|utxo| {
           let outpoint = OutPoint::new(utxo.txid, utxo.vout);
