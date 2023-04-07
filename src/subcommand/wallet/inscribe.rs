@@ -18,12 +18,14 @@ use {
   std::collections::BTreeSet,
 };
 
+use bitcoin::{consensus::encode::serialize, psbt::{Input, Output as psbtout}};
+use bitcoin::util::psbt::PartiallySignedTransaction;
 #[derive(Serialize)]
 struct Output {
   commit: Txid,
   inscription: InscriptionId,
-  reveal: Txid,
   fees: u64,
+  reveal_psbt: Option<String>,
 }
 
 #[derive(Debug, Parser)]
@@ -72,7 +74,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx, reveal_tx, recovery_key_pair) =
+    let (unsigned_commit_tx, mut reveal_tx, recovery_key_pair) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -99,8 +101,8 @@ impl Inscribe {
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
-        reveal: reveal_tx.txid(),
         inscription: reveal_tx.txid().into(),
+        reveal_psbt: None,
         fees,
       })?;
     } else {
@@ -116,18 +118,75 @@ impl Inscribe {
         .send_raw_transaction(&signed_raw_commit_tx)
         .context("Failed to send commit transaction")?;
 
-      let reveal = client
-        .send_raw_transaction(&reveal_tx)
-        .context("Failed to send reveal transaction")?;
+    let address =
+    client.get_new_address(None, Some(bitcoincore_rpc::json::AddressType::Bech32m))?;
+let maker_fee = 10000; // Set the maker fee in satoshis
 
-      print_json(Output {
-        commit,
-        reveal,
-        inscription: reveal.into(),
-        fees,
-      })?;
+      let maker_fee_output = TxOut {
+        script_pubkey: address.script_pubkey(),
+        value: maker_fee,
     };
+    reveal_tx.output.push(maker_fee_output);
+            // Create a PSBT for the signed reveal transaction
+            let psbt_inputs: Vec<Input> = reveal_tx
+    .input
+    .iter()
+    .map(|input| Input {
+        non_witness_utxo: None,
+        witness_utxo: None,
+        partial_sigs: BTreeMap::new(),
+        sighash_type: None,
+        redeem_script: None,
+        witness_script: None,
+        final_script_sig: Some(input.script_sig.clone()),
+        final_script_witness: Some(input.witness.clone()),
+        unknown: BTreeMap::new(),
+        bip32_derivation: BTreeMap::new(),
+        ripemd160_preimages: BTreeMap::new(),
+        sha256_preimages: BTreeMap::new(),
+        hash160_preimages: BTreeMap::new(),
+        hash256_preimages: BTreeMap::new(),
+        tap_key_sig: None,
+        tap_script_sigs: BTreeMap::new(),
+        tap_scripts: BTreeMap::new(),
+        tap_key_origins: BTreeMap::new(),
+        tap_internal_key: None,
+        tap_merkle_root: None,
+        proprietary: BTreeMap::new(),
+    })
+    .collect();
 
+    let psbt_reveal = PartiallySignedTransaction {
+          unsigned_tx: reveal_tx.clone(),
+          version: 0,
+          xpub: BTreeMap::new(),
+          proprietary: BTreeMap::new(),
+          unknown: BTreeMap::new(),
+      inputs: psbt_inputs,
+      outputs: reveal_tx
+      .output
+      .iter()
+      .map(|_output| psbtout {
+          redeem_script: None,
+          witness_script: None,
+          bip32_derivation: BTreeMap::new(),
+          unknown: BTreeMap::new(),
+          tap_internal_key: None,
+          tap_tree: None,
+          tap_key_origins: BTreeMap::new(),
+          proprietary: BTreeMap::new(),
+      })
+      .collect()};
+  
+          let psbt_reveal_base64 = base64::encode(&serialize(&psbt_reveal));
+    
+          print_json(Output {
+            commit,
+            inscription: commit.into(),
+            reveal_psbt: Some(psbt_reveal_base64),
+            fees,
+          })?;
+        };
     Ok(())
   }
 
