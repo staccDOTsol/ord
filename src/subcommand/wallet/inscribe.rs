@@ -324,7 +324,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
         vout: vout.try_into().unwrap(),
       },
       TxOut {
-        script_pubkey: destination.script_pubkey(),
+        script_pubkey: Script::new(),
         value: output.value,
       },
       &reveal_script,
