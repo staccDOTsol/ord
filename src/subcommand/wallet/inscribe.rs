@@ -18,7 +18,7 @@ use {
   std::collections::BTreeSet,
 };
 
-use bitcoin::{consensus::encode::serialize, psbt::{Input, Output as psbtout}};
+use bitcoin::{consensus::encode::serialize, psbt::{Input, Output as psbtout}, hashes::hex::FromHex};
 use bitcoin::util::psbt::PartiallySignedTransaction;
 #[derive(Serialize)]
 struct Output {
@@ -117,7 +117,32 @@ impl Inscribe {
       let commit = client
         .send_raw_transaction(&signed_raw_commit_tx)
         .context("Failed to send commit transaction")?;
-
+      let dummy_utxo_1 = OutPoint {
+        txid: Txid::from_hex("1111111111111111111111111111111111111111111111111111111111111111")?,
+        vout: 0,
+    };
+    
+    let dummy_utxo_2 = OutPoint {
+        txid: Txid::from_hex("2222222222222222222222222222222222222222222222222222222222222222")?,
+        vout: 1,
+    };
+    let dummy_input_1 = TxIn {
+      previous_output: dummy_utxo_1,
+      script_sig: Script::new(),
+      witness: Witness::new(),
+      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+  };
+  
+  let dummy_input_2 = TxIn {
+      previous_output: dummy_utxo_2,
+      script_sig: Script::new(),
+      witness: Witness::new(),
+      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+  };
+  
+  reveal_tx.input.insert(0, dummy_input_1);
+  reveal_tx.input.insert(1, dummy_input_2);
+      
     let address =
     client.get_new_address(None, Some(bitcoincore_rpc::json::AddressType::Bech32m))?;
 let maker_fee = 10000; // Set the maker fee in satoshis
