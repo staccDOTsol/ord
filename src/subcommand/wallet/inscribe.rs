@@ -109,7 +109,6 @@ impl Inscribe {
       if !self.no_backup {
         Inscribe::backup_recovery_key(&client, recovery_key_pair, options.chain().network())?;
       }
-
       let signed_raw_commit_tx = client
         .sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None)?
         .hex;
@@ -294,7 +293,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
       reveal_fee_rate,
       OutPoint::null(),
       TxOut {
-        script_pubkey: destination.script_pubkey(),
+        script_pubkey: Script::new(),
         value: 0,
       },
       &reveal_script,
