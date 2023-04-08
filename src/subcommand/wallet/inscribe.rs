@@ -147,8 +147,8 @@ let maker_fee = 10000; // Set the maker fee in satoshis
         sighash_type: Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()),
         redeem_script: None,
         witness_script: None,
-        final_script_sig: Some(input.script_sig.clone()),
-        final_script_witness: Some(input.witness.clone()),
+        final_script_sig: None,
+        final_script_witness: None,
         unknown: BTreeMap::new(),
         bip32_derivation: BTreeMap::new(),
         ripemd160_preimages: BTreeMap::new(),
@@ -381,7 +381,7 @@ reveal_tx.output.push(change_output);
     witness.push(signature.as_ref());
     witness.push(reveal_script);
     witness.push(&control_block.serialize());
-    
+
     let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
     let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
