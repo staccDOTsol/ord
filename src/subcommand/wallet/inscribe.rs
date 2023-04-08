@@ -161,7 +161,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
     .input
     .iter()
     .map(|input| Input {
-      non_witness_utxo: Some(unsigned_commit_tx.clone()),
+      non_witness_utxo: None,
       witness_utxo: unsigned_commit_tx
           .output
           .get(input.previous_output.vout as usize)
