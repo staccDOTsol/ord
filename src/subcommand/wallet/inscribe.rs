@@ -215,7 +215,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
           print_json(Output {
             commit,
             inscription: commit.into(),
-            reveal_psbt: Some(psbt_reveal),
+            reveal_psbt: Some(psbt_reveal_base64),
             fees,
           })?;
         };
