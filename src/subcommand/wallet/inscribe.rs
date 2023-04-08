@@ -211,7 +211,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
           let psbt_reveal_base64 = base64::encode(&serialize(&psbt_reveal));
           let psbt_reveal = client
             .wallet_process_psbt(&psbt_reveal_base64, Some(true),   Some(SIGHASH_TYPE.into()), None)?;
-          let psbt_reveal = base64::encode(&serialize(&psbt_reveal.psbt));
+          let psbt_reveal_base64 = psbt_reveal.psbt;
           print_json(Output {
             commit,
             inscription: commit.into(),
