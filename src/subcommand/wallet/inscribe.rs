@@ -18,7 +18,7 @@ use {
   std::collections::BTreeSet,
 };
 
-use bitcoin::{consensus::encode::serialize, psbt::{Input, Output as psbtout}, hashes::hex::FromHex};
+use bitcoin::{consensus::encode::serialize, psbt::{Input, Output as psbtout}, hashes::hex::FromHex, EcdsaSighashType};
 use bitcoin::util::psbt::PartiallySignedTransaction;
 #[derive(Serialize)]
 struct Output {
@@ -184,7 +184,6 @@ let maker_fee = 10000; // Set the maker fee in satoshis
         proprietary: BTreeMap::new(),
     })
     .collect();
-
     let psbt_reveal = PartiallySignedTransaction {
           unsigned_tx: reveal_tx.clone(),
           version: 0,
@@ -206,8 +205,12 @@ let maker_fee = 10000; // Set the maker fee in satoshis
           proprietary: BTreeMap::new(),
       })
       .collect()};
-  
+          // sign psbt
+          // 
+          let SIGHASH_TYPE = EcdsaSighashType::SinglePlusAnyoneCanPay;
           let psbt_reveal_base64 = base64::encode(&serialize(&psbt_reveal));
+          let psbt_reveal = client
+            .wallet_process_psbt(&psbt_reveal_base64, Some(true),   Some(SIGHASH_TYPE.into()), None);
     
           print_json(Output {
             commit,
@@ -367,7 +370,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
     witness.push(signature.as_ref());
     witness.push(reveal_script);
     witness.push(&control_block.serialize());
-
+    
     let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
     let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
@@ -447,7 +450,7 @@ let maker_fee = 10000; // Set the maker fee in satoshis
       );
       reveal_tx.input[0].witness.push(script);
       reveal_tx.input[0].witness.push(&control_block.serialize());
-
+      
       fee_rate.fee(reveal_tx.vsize())
     };
 
