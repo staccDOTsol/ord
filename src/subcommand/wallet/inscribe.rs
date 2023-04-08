@@ -162,7 +162,13 @@ let maker_fee = 10000; // Set the maker fee in satoshis
     .iter()
     .map(|input| Input {
         non_witness_utxo: None,
-        witness_utxo: None,
+        witness_utxo: unsigned_commit_tx
+            .output
+            .get(input.previous_output.vout as usize)
+            .map(|output| TxOut {
+                script_pubkey: output.script_pubkey.clone(),
+                value: output.value,
+            }),
         partial_sigs: BTreeMap::new(),
         sighash_type: None,
         redeem_script: None,
