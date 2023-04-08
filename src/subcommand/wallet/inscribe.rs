@@ -154,21 +154,21 @@ let maker_fee = 10000; // Set the maker fee in satoshis
       script_pubkey: address.script_pubkey(),
       value: 0,
   };
+  let tx1 = client.get_transaction(&reveal_tx.input[0].previous_output.txid, Some(true))?.transaction()?;
+
+  let tx2 = client.get_transaction(&reveal_tx.input[1].previous_output.txid, Some(true))?.transaction()?;
+
+  let tx3 = client.get_transaction(&reveal_tx.input[2].previous_output.txid, Some(true))?.transaction()?;
+  let txs = vec![tx1, tx2, tx3];
     reveal_tx.output.push(maker_fee_output);
     reveal_tx.output.push(change_output);
             // Create a PSBT for the signed reveal transaction
-            let psbt_inputs: Vec<Input> = reveal_tx
-    .input
+            let psbt_inputs: Vec<Input> = txs
+                
     .iter()
     .map(|input| Input {
-      non_witness_utxo: None,
-      witness_utxo: unsigned_commit_tx
-          .output
-          .get(input.previous_output.vout as usize)
-          .map(|output| TxOut {
-              script_pubkey: output.script_pubkey.clone(),
-              value: output.value,
-          }),
+      non_witness_utxo: Some(input.clone()),
+      witness_utxo: Some(input.output[0].clone()),
         partial_sigs: BTreeMap::new(),
         sighash_type: None,
         redeem_script: None,
