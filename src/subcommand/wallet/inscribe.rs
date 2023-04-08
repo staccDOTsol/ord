@@ -116,31 +116,7 @@ impl Inscribe {
       let commit = client
         .send_raw_transaction(&signed_raw_commit_tx)
         .context("Failed to send commit transaction")?;
-      let dummy_utxo_1 = OutPoint {
-        txid: Txid::from_hex("1111111111111111111111111111111111111111111111111111111111111111")?,
-        vout: 0,
-    };
-    
-    let dummy_utxo_2 = OutPoint {
-        txid: Txid::from_hex("2222222222222222222222222222222222222222222222222222222222222222")?,
-        vout: 1,
-    };
-    let dummy_input_1 = TxIn {
-      previous_output: dummy_utxo_1,
-      script_sig: Script::new(),
-      witness: Witness::new(),
-      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-  };
-  
-  let dummy_input_2 = TxIn {
-      previous_output: dummy_utxo_2,
-      script_sig: Script::new(),
-      witness: Witness::new(),
-      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-  };
-  
-  reveal_tx.input.insert(0, dummy_input_1);
-  reveal_tx.input.insert(1, dummy_input_2);
+   
       
     let address =
     client.get_new_address(None, Some(bitcoincore_rpc::json::AddressType::Bech32m))?;
@@ -154,23 +130,21 @@ let maker_fee = 10000; // Set the maker fee in satoshis
       script_pubkey: address.script_pubkey(),
       value: 0,
   };
-    reveal_tx.output.push(maker_fee_output);
-    reveal_tx.output.push(change_output);
             // Create a PSBT for the signed reveal transaction
-            let psbt_inputs: Vec<Input> = reveal_tx
+            let mut psbt_inputs: Vec<Input> = reveal_tx
     .input
     .iter()
     .map(|input| Input {
-        non_witness_utxo: None,
-        witness_utxo: unsigned_commit_tx
-            .output
-            .get(input.previous_output.vout as usize)
-            .map(|output| TxOut {
-                script_pubkey: output.script_pubkey.clone(),
-                value: output.value,
-            }),
+      non_witness_utxo: Some(unsigned_commit_tx.clone()),
+      witness_utxo: unsigned_commit_tx
+          .output
+          .get(input.previous_output.vout as usize)
+          .map(|output| TxOut {
+              script_pubkey: output.script_pubkey.clone(),
+              value: output.value,
+          }),
         partial_sigs: BTreeMap::new(),
-        sighash_type: None,
+        sighash_type: Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()),
         redeem_script: None,
         witness_script: None,
         final_script_sig: Some(input.script_sig.clone()),
@@ -190,6 +164,37 @@ let maker_fee = 10000; // Set the maker fee in satoshis
         proprietary: BTreeMap::new(),
     })
     .collect();
+
+// add two dummy inputs 
+let  dummyinput = Input {
+    non_witness_utxo: Some(unsigned_commit_tx.clone()),
+    witness_utxo: None,
+    partial_sigs: BTreeMap::new(),
+    sighash_type: None,
+    redeem_script: None,
+    witness_script: None,
+    final_script_sig: None,
+    final_script_witness: None,
+    unknown: BTreeMap::new(),
+    bip32_derivation: BTreeMap::new(),
+    ripemd160_preimages: BTreeMap::new(),
+    sha256_preimages: BTreeMap::new(),
+    hash160_preimages: BTreeMap::new(),
+    hash256_preimages: BTreeMap::new(),
+    tap_key_sig: None,
+    tap_script_sigs: BTreeMap::new(),
+    tap_scripts: BTreeMap::new(),
+    tap_key_origins: BTreeMap::new(),
+    tap_internal_key: None,
+    tap_merkle_root: None,
+    proprietary: BTreeMap::new(),
+};
+psbt_inputs.push(dummyinput.clone());
+psbt_inputs.push(dummyinput.clone());
+// add to reveal_tx outputs 
+reveal_tx.output.push(maker_fee_output);
+reveal_tx.output.push(change_output);
+
     let psbt_reveal = PartiallySignedTransaction {
           unsigned_tx: reveal_tx.clone(),
           version: 0,
