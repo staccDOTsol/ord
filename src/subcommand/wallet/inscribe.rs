@@ -150,7 +150,12 @@ let maker_fee = 10000; // Set the maker fee in satoshis
         script_pubkey: address.script_pubkey(),
         value: maker_fee,
     };
+    let change_output = TxOut {
+      script_pubkey: address.script_pubkey(),
+      value: 0,
+  };
     reveal_tx.output.push(maker_fee_output);
+    reveal_tx.output.push(change_output);
             // Create a PSBT for the signed reveal transaction
             let psbt_inputs: Vec<Input> = reveal_tx
     .input
