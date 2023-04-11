@@ -102,7 +102,6 @@ impl Inscribe {
       Self::calculate_fee(&unsigned_commit_tx, &utxos);
       
      let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
-let fees = creator_fees + minter_fees;
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
@@ -131,17 +130,17 @@ let fees = creator_fees + minter_fees;
         .sign_raw_transaction_with_wallet(&reveal_tx, None, None)?
         .hex;
       let to_write =  signed_raw_reveal_tx;
-      /*
+
       let sighash = reveal_tx.signature_hash(
         0,
-        &unsigned_commit_tx.output[commit_vout as usize],
-        bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay
+        &unsigned_commit_tx.output[commit_vout as usize].script_pubkey,
+        bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay as u32
       );
-      */
       
       let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
       let mut reveal_file = File::create(&reveal_path)?;
       writeln!(reveal_file, "{}", &mut serialize(&to_write).to_hex())?;
+      writeln!(reveal_file, "{}", &mut serialize(&sighash).to_hex())?;
       
       print_json(Output {
         commit,
