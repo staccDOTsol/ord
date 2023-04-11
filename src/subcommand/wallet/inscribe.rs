@@ -99,9 +99,9 @@ impl Inscribe {
     );
 
     let creator_fees =
-      Self::calculate_fee(&unsigned_commit_tx, &utxos);
+      Self::calculate_fee(&unsigned_commit_tx, &client);
       
-     let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
+     let minter_fees = Self::calculate_fee(&reveal_tx, &client);
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
@@ -154,13 +154,33 @@ impl Inscribe {
     Ok(())
   }
 
-  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
-    tx.input
+  fn calculate_fee(tx: &Transaction, client: &Client  ) -> u64 {
+    let input_txids = tx
+      .input
       .iter()
-      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
-      .sum::<u64>()
-      .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
-      .unwrap()
+      .map(|input| input.previous_output.txid)
+      ;
+    let input_vouts = tx
+      .input
+      .iter()
+      .map(|input| input.previous_output.vout)
+      ;  
+
+    let input_values: u64 = input_txids
+      .zip(input_vouts)
+      .map(|(txid, vout)| {
+        client
+          .get_raw_transaction(&txid, None).unwrap()  
+          .output
+          .get(vout as usize)
+          .context("Failed to get vout from transaction").unwrap()
+          .value
+      })
+      .sum();
+    
+    input_values - tx.output.iter().map(|output| output.value).sum::<u64>() 
+
+
   }
 
   fn create_inscription_transactions(
