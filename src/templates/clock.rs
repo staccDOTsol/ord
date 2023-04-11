@@ -74,7 +74,7 @@ mod tests {
       6929999.0 / 6930000.0 * 360.0
     );
   }
-
+ 
   #[test]
   fn first_post_subsidy_height() {
     pretty_assert_eq!(ClockSvg::new(Height(6930000)).second, 180.0);
