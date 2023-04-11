@@ -97,17 +97,17 @@ impl Inscribe {
         unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
       ),
     );
+    let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
 
     let creator_fees =
       Self::calculate_fee(&unsigned_commit_tx, &utxos);
       
-     let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
         fees: FeeStruct {
-          creator_fees,
-          minter_fees
+          creator_fees : creator_fees,
+          minter_fees: minter_fees
         }
       })?;
     } else {
@@ -147,8 +147,8 @@ impl Inscribe {
       print_json(Output {
         commit,
         fees: FeeStruct {
-          creator_fees,
-          minter_fees
+          creator_fees : creator_fees,
+          minter_fees: minter_fees
         }
       })?;
     };
