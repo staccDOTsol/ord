@@ -19,11 +19,18 @@ use {
 };
 use bitcoin::{consensus::serialize, hashes::hex::ToHex};
 use std::io::Write;
+
+#[derive(Serialize)]
+struct FeeStruct {
+  creator_fees: u64,
+  minter_fees: u64
+}
 #[derive(Serialize)]
 struct Output {
   commit: Txid,
-  fees: u64,
+  fees: FeeStruct
 }
+
 
 #[derive(Debug, Parser)]
 pub(crate) struct Inscribe {
@@ -92,13 +99,18 @@ impl Inscribe {
       ),
     );
 
-    let fees =
-      Self::calculate_fee(&unsigned_commit_tx, &utxos) + Self::calculate_fee(&reveal_tx, &utxos);
+    let creator_fees =
+      Self::calculate_fee(&unsigned_commit_tx, &utxos);
+      
+     let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
 
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
-        fees,
+        fees: FeeStruct {
+          creator_fees,
+          minter_fees
+        }
       })?;
     } else {
       if !self.no_backup {
@@ -121,8 +133,10 @@ impl Inscribe {
       
       print_json(Output {
         commit,
-        
-        fees,
+        fees: FeeStruct {
+          creator_fees,
+          minter_fees
+        }
       })?;
     };
 
