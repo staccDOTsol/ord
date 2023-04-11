@@ -170,11 +170,14 @@ impl Inscribe {
       .zip(input_vouts)
       .map(|(txid, vout)| {
         client
-          .get_raw_transaction(&txid, None).unwrap()  
-          .output
-          .get(vout as usize)
-          .context("Failed to get vout from transaction").unwrap()
-          .value
+          .get_transaction(&txid, None).unwrap()  
+          .details
+          .iter()
+          .find(|detail| detail.vout == vout)
+          .unwrap()
+          .amount
+          .as_sat() as u64
+          
       })
       .sum();
     
