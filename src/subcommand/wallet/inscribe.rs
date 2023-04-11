@@ -99,9 +99,9 @@ impl Inscribe {
     );
 
     let creator_fees =
-      Self::calculate_fee(&unsigned_commit_tx, &client);
+      Self::calculate_fee(&unsigned_commit_tx, &utxos);
       
-     let minter_fees = Self::calculate_fee(&reveal_tx, &client);
+     let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
@@ -136,6 +136,8 @@ impl Inscribe {
         &unsigned_commit_tx.output[commit_vout as usize].script_pubkey,
         bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay as u32
       );
+      // finalize the reveal tx
+      
       
       let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
       let mut reveal_file = File::create(&reveal_path)?;
@@ -154,58 +156,13 @@ impl Inscribe {
     Ok(())
   }
 
-  fn calculate_fee(tx: &Transaction, client: &Client  ) -> u64 {
-    let input_txids = tx
-      .input
+  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
+    tx.input
       .iter()
-      .map(|input| input.previous_output.txid)
-      ;
-    let input_vouts = tx
-      .input
-      .iter()
-      .map(|input| input.previous_output.vout)  
-      ;  
-let my_transactions = client.list_transactions(None, None, None, None).unwrap();
-
-    let input_values: u64 = input_txids.clone()
-    .filter(|txid| my_transactions.iter().any(|tx| tx.info.txid == *txid))
-      .zip(input_vouts.clone()  )
-      .map(|(txid, vout)| {
-        client
-          .get_transaction(&txid, None).unwrap()
-
-          .details
-          .iter()
-          .find(|detail| detail.vout == vout)
-          .unwrap()
-          .amount
-          .to_sat() as u64
-          
-      })
-      .sum();
-    let other_input_values: u64 =
-      input_txids.clone()
-      .filter(|txid| !my_transactions.iter().any(|tx| tx.info.txid == *txid))
-      .zip(input_vouts)
-      .map(|(txid, vout)| {
-        client
-          .get_raw_transaction(&txid, None).unwrap()  
-          .output
-          .get(vout as usize)
-          .context("Failed to get vout from transaction").unwrap()
-          .value as u64
-      })
-      .sum();
-
-    let output_values: u64 = tx
-      .output
-      .iter()
-      .map(|output| output.value)
-      .sum();
-
-    input_values + other_input_values - output_values
-
-
+      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
+      .sum::<u64>()
+      .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
+      .unwrap()
   }
 
   fn create_inscription_transactions(
