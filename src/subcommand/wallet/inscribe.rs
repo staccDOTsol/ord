@@ -122,39 +122,41 @@ impl Inscribe {
       // broadcast commit tx
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
 
-      // create psbt
-      let psbt_inputs: Vec<CreateRawTransactionInput> = reveal_tx.input.iter().map(|input| {  
-        let mut psbt_input = CreateRawTransactionInput{
-        txid: (input.previous_output.txid ),
-        sequence: Some(input.sequence.0),
-        vout : (input.previous_output.vout),
-       
-        };
-        psbt_input
-      }).collect();
-      
-
-
-
-      let psbt_outputs: HashMap<String, Amount> = reveal_tx.output.iter().map(|output| {
-        let mut psbt_output = HashMap::new();
-        psbt_output.insert(output.script_pubkey.to_string(), Amount::from_sat(output.value));
-        psbt_output
-      }).flatten().collect();
-
+      // sign reveal tx
+      let signed_raw_reveal_tx = client
+        .sign_raw_transaction_with_wallet(&reveal_tx, None, None).unwrap()
+        ;
+      reveal_tx = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_reveal_tx.hex).unwrap();
 
 
       let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
-      
-      
+      let unsigned_reveal_tx =Transaction {
+        version: reveal_tx.version,
+        lock_time: reveal_tx.lock_time,
+        input: reveal_tx.clone().input.into_iter().map(|input| {
+          let mut txin = TxIn {
+            previous_output: input.previous_output,
+            script_sig: Script::new(),
+            sequence: input.sequence, 
+            witness: Witness::new(),
+          };
+          txin
+        }).collect(),
+        output: reveal_tx.clone().output.into_iter().map(|output| {
+          let mut txout = TxOut {
+            value: output.value,
+            script_pubkey: output.script_pubkey,
+          };
+          txout
+        }).collect(),
+      };
       // create new psbt with the inputs and outputs
-      let encoded = client.create_psbt(&psbt_inputs, &psbt_outputs, None,  None).unwrap();
-      // add the witness data to the psbt
+      let psbt = &mut Psbt::from_unsigned_tx(unsigned_reveal_tx).unwrap();
+      // add the witness data and signatures and the witness script and the witness utxo and the sighash type to the psbt
       
-      let mut psbt: PartiallySignedTransaction = serde_json::from_str(&encoded).unwrap();
 
-
-      for (i, input) in reveal_tx.input.iter().enumerate() {
+      let cloned_rereveal_txveal_tx = reveal_tx.clone();
+      for (i, input) in cloned_rereveal_txveal_tx.input.iter().enumerate() {
         psbt.inputs[i].witness_utxo = Some(TxOut {
           value: decompiled.output[input.previous_output.vout as usize].value,
           script_pubkey: decompiled.output[input.previous_output.vout as usize].script_pubkey.clone(),
@@ -170,23 +172,18 @@ impl Inscribe {
         input.sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
       }
        psbt.inputs[0].final_script_witness = Some(witness);
-      let signed_psbt = client.wallet_process_psbt( &serde_json::to_string(&psbt).unwrap(), Some(true), 
-      Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
-      // extract the raw transaction
+      // should I just sign the raw tx instead???
+      // sign the psbt as a raw tx or with  wallet_process_psbt
+       // 
+
+       let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, None).unwrap().hex;
 
 
-
-
-
-       
-
-      let  psbt_tx  = Psbt::extract(&serde_json::from_str(&signed_psbt).unwrap(), &Secp256k1::new()).unwrap();
-     let signed_psbt = client.wallet_process_psbt(&psbt_tx.raw_hex().to_owned(), Some(true), None, None).unwrap().psbt;
      let  file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
 
       let  filewriter =  &mut BufWriter::new(file);
 
-     writeln!(filewriter, "{}", signed_psbt).unwrap();
+     writeln!(filewriter, "{}", signed_psbt.raw_hex()).unwrap();
       print_json(Output {
         commit: commit_txid,
         minter_fees,
