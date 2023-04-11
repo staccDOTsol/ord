@@ -17,8 +17,9 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-use bitcoin::{consensus::serialize, hashes::hex::ToHex};
-use std::io::Write;
+use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::PsbtSighashType};
+use bitcoincore_rpc::bitcoincore_rpc_json::SignRawTransactionInput;
+use std::{io::Write, borrow::Borrow};
 #[derive(Serialize)]
 struct Output {
   commit: Txid,
@@ -116,9 +117,20 @@ impl Inscribe {
       let commit = client
         .send_raw_transaction(&signed_raw_commit_tx)
         .context("Failed to send commit transaction")?;
-     
+      
+
+      let reveal_tx_input = SignRawTransactionInput {
+        txid: commit,
+
+        vout: 0,
+        script_pub_key: (unsigned_commit_tx.output[0].script_pubkey.clone().to_p2sh()), 
+        amount: Some(Amount::from_sat(unsigned_commit_tx.output[0].value)),
+        redeem_script: None
+      };
+
         let signed_reveal_tx = client
-        .sign_raw_transaction_with_wallet(&reveal_tx, None, None)?
+        .sign_raw_transaction_with_wallet(&reveal_tx, Some(&[reveal_tx_input]),
+          Some(bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay.into())  )?
         .hex;
 
 
