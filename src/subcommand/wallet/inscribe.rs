@@ -18,10 +18,10 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-use bitcoin::AddressType::P2pkh;
-use std::{ops::Deref, io::BufReader};
-use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt, PartiallySignedTransaction}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
-use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType}, RawTx};
+use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction};
+use std::{ops::Deref, io::BufReader, collections::HashMap};
+use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
+use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions}, RawTx};
 use lazy_static::__Deref;
 use miniscript::{Segwitv0, psbt::PsbtExt};
 use std::{io::{Write, BufWriter}, borrow::Borrow};
@@ -121,51 +121,68 @@ impl Inscribe {
 
       // broadcast commit tx
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
+
+      // create psbt
+      let psbt_inputs: Vec<CreateRawTransactionInput> = reveal_tx.input.iter().map(|input| {  
+        let mut psbt_input = CreateRawTransactionInput{
+        txid: (input.previous_output.txid ),
+        sequence: Some(input.sequence.0),
+        vout : (input.previous_output.vout),
+       
+        };
+        psbt_input
+      }).collect();
+      
+
+
+
+      let psbt_outputs: HashMap<String, Amount> = reveal_tx.output.iter().map(|output| {
+        let mut psbt_output = HashMap::new();
+        psbt_output.insert(output.script_pubkey.to_string(), Amount::from_sat(output.value));
+        psbt_output
+      }).flatten().collect();
+
+
+
       let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
-      let mut reveal_tx = reveal_tx;
-      reveal_tx.input[0].witness = witness;
-      // add the sighash type to the reveal_tx
       
-      // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
-      let mut output = TxOut::default();
-      output.value = 500_000;
-      output.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
-      reveal_tx.output.insert(0, output);
-
-      // but now we need to add a new input to the reveal_tx
-      let mut input = TxIn {
-     previous_output:   OutPoint {
-          txid: decompiled.txid(),
-          vout: decompiled.output.len() as u32 - 1,
-        },
-        script_sig: Script::default(),
-        sequence:  Sequence(0),
-        witness:    Witness::default(),
-      };  
-
-      // add the input to the reveal_tx
-      reveal_tx.input.push(input);
-
-
-
       
-      // create psbt SIGHASH Single | AnyoneCanPay
-      let mut psbt = Psbt::from_unsigned_tx(reveal_tx)?;
+      // create new psbt with the inputs and outputs
+      let encoded = client.create_psbt(&psbt_inputs, &psbt_outputs, None,  None).unwrap();
+      // add the witness data to the psbt
+      
+      let mut psbt: PartiallySignedTransaction = serde_json::from_str(&encoded).unwrap();
 
 
-
+      for (i, input) in reveal_tx.input.iter().enumerate() {
+        psbt.inputs[i].witness_utxo = Some(TxOut {
+          value: decompiled.output[input.previous_output.vout as usize].value,
+          script_pubkey: decompiled.output[input.previous_output.vout as usize].script_pubkey.clone(),
+        });
+        psbt.inputs[i].witness_script = Some(decompiled.output[input.previous_output.vout as usize].script_pubkey.clone());
+        psbt.inputs[i].final_script_sig = Some(input.script_sig.clone());
+        psbt.inputs[i].final_script_witness = Some(input.witness.clone());
+      }
 
 
 
       for input in psbt.inputs.iter_mut() {
         input.sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
       }
+       psbt.inputs[0].final_script_witness = Some(witness);
+      let signed_psbt = client.wallet_process_psbt( &serde_json::to_string(&psbt).unwrap(), Some(true), 
+      Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+      // extract the raw transaction
+
+
+
+
 
        
 
-      let  psbt_tx  = Psbt::extract(&psbt, &Secp256k1::new()).unwrap();
+      let  psbt_tx  = Psbt::extract(&serde_json::from_str(&signed_psbt).unwrap(), &Secp256k1::new()).unwrap();
      let signed_psbt = client.wallet_process_psbt(&psbt_tx.raw_hex().to_owned(), Some(true), None, None).unwrap().psbt;
-     let mut file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
+     let  file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
 
       let  filewriter =  &mut BufWriter::new(file);
 
@@ -370,6 +387,13 @@ impl Inscribe {
     output: TxOut,
     script: &Script,
   ) -> (Transaction, Vec<Vec<u8>> , Amount) {
+    
+    
+      // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
+      let mut output2 = TxOut::default();
+      output2.value = 500_000;
+      output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
+     
     let reveal_tx = Transaction {
       input: vec![TxIn {
         previous_output: input,
@@ -377,7 +401,7 @@ impl Inscribe {
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
       }],
-      output: vec![output],
+      output: vec![output2, output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
     };
