@@ -388,7 +388,7 @@ impl Inscribe {
     
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
       let mut output2 = TxOut::default();
-      output2.value = 500_000;
+      output2.value = 6666;
       output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
      
     let reveal_tx = Transaction {
