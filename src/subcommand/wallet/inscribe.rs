@@ -68,7 +68,14 @@ impl Inscribe {
     let client = options.bitcoin_rpc_client_for_wallet_command(false)?;
 
     let mut utxos = index.get_unspent_outputs(Wallet::load(&options)?)?;
+    
+    utxos = utxos.iter_mut()
+    .filter(|(_, amount )| amount.as_sat() > 1000 && amount.as_sat() < 66600) 
+    .map(|(txid, amount)| (*txid, *amount))
+    .collect();
+  
 
+    
     let inscriptions = index.get_inscriptions(None)?;
 
     let commit_tx_change = [get_change_address(&client)?, get_change_address(&client)?];
@@ -121,7 +128,7 @@ impl Inscribe {
 
       // broadcast commit tx
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
-
+     
       // sign reveal tx
       let signed_raw_reveal_tx = client
         .sign_raw_transaction_with_wallet(&reveal_tx, None, None).unwrap()
