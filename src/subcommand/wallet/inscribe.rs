@@ -174,7 +174,10 @@ impl Inscribe {
        psbt.inputs[0].final_script_witness = Some(witness);
       // should I just sign the raw tx instead???
       // sign the psbt as a raw tx or with  wallet_process_psbt
-       // 
+       // is the reveal broadcassted when thee psbt is broadcasted?
+       // let signed_psbt = client.wallet_process_psbt(&psbt.clone()).unwrap();
+       
+
 
        let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, None).unwrap().hex;
 
@@ -411,16 +414,21 @@ impl Inscribe {
         script.clone().as_ref().to_vec(),
         control_block.serialize().to_vec()
       ];
-      let mut dummy_reveal_tx  = reveal_tx.clone();
-      dummy_reveal_tx.input[0].witness = Witness::from_vec(vec![
+      
+    let fee = {
+      let mut reveal_tx = reveal_tx.clone();
+
+      reveal_tx.input[0].witness.push(
         Signature::from_slice(&[0; SCHNORR_SIGNATURE_SIZE])
           .unwrap()
-          .as_ref().to_vec(),
-        script.clone().as_ref().to_vec(),
-        control_block.serialize().to_vec()
-      ]);
+          .as_ref(),
+      );
+      reveal_tx.input[0].witness.push(script);
+      reveal_tx.input[0].witness.push(&control_block.serialize());
 
+      fee_rate.fee(reveal_tx.vsize())
+    };
 
-    (reveal_tx, witness, fee_rate.fee(dummy_reveal_tx.vsize()))
+    (reveal_tx, witness, fee)
   }
 }
