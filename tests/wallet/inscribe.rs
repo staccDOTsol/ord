@@ -22,7 +22,7 @@ fn inscribe_creates_inscriptions() {
     "text/plain;charset=utf-8"
   );
   assert_eq!(request.text().unwrap(), "FOO");
-}
+} 
 
 #[test]
 fn inscribe_works_with_huge_expensive_inscriptions() {
