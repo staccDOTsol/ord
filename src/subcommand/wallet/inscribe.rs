@@ -102,7 +102,7 @@ impl Inscribe {
       Self::calculate_fee(&unsigned_commit_tx, &utxos);
       
      let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
-
+let fees = creator_fees + minter_fees;
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
