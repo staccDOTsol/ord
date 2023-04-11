@@ -3,7 +3,6 @@ use {
   crate::wallet::Wallet,
   bitcoin::{
     blockdata::{opcodes, script},
-    policy::MAX_STANDARD_TX_WEIGHT,
     schnorr::{TapTweak, TweakedKeyPair, TweakedPublicKey, UntweakedKeyPair},
     secp256k1::{
       self, constants::SCHNORR_SIGNATURE_SIZE, rand, schnorr::Signature, Secp256k1, XOnlyPublicKey,
@@ -17,7 +16,7 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-use bitcoin::{consensus::serialize, hashes::hex::ToHex};
+use bitcoin::{consensus::serialize, hashes::hex::ToHex, util::amount::serde::{as_btc::opt::deserialize}};
 use std::io::Write;
 
 #[derive(Serialize)]
@@ -127,9 +126,22 @@ impl Inscribe {
      
       // append reveal_tx as b64 to ./reveals/<commit_txid>:<commit_vout>.txt
       let commit_vout = reveal_tx.input[0].previous_output.vout;
+      // sign the reveal tx and do not finalize it
+      let signed_raw_reveal_tx = client
+        .sign_raw_transaction_with_wallet(&reveal_tx, None, None)?
+        .hex;
+      let to_write =  signed_raw_reveal_tx;
+      /*
+      let sighash = reveal_tx.signature_hash(
+        0,
+        &unsigned_commit_tx.output[commit_vout as usize],
+        bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay
+      );
+      */
+      
       let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
       let mut reveal_file = File::create(&reveal_path)?;
-      writeln!(reveal_file, "{}", &mut serialize(&reveal_tx).to_hex())?;
+      writeln!(reveal_file, "{}", &mut serialize(&to_write).to_hex())?;
       
       print_json(Output {
         commit,
