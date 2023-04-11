@@ -173,7 +173,7 @@ impl TransactionBuilder {
       .select_outgoing()?
       .align_outgoing()
       .pad_alignment_output()?
-    //  .add_value()?
+      .add_value()?
       .strip_value()
       .deduct_fee()
       .build()
@@ -560,8 +560,15 @@ impl TransactionBuilder {
           }
           Target::Value(value) => {
             assert!(
-              Amount::from_sat(output.value) >=Amount::from_sat(0),
-              "invariant: excess value is stripped"
+              Amount::from_sat(output.value).checked_sub(value).unwrap()
+                <= self
+                  .change_addresses
+                  .iter()
+                  .map(|address| address.script_pubkey().dust_value())
+                  .max()
+                  .unwrap_or_default()
+                  + slop,
+              "invariant: output equals target value",
             );
           }
         }
