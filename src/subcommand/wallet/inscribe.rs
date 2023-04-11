@@ -163,25 +163,47 @@ impl Inscribe {
     let input_vouts = tx
       .input
       .iter()
-      .map(|input| input.previous_output.vout)
+      .map(|input| input.previous_output.vout)  
       ;  
+let my_transactions = client.list_transactions(None, None, None, None).unwrap();
 
-    let input_values: u64 = input_txids
-      .zip(input_vouts)
+    let input_values: u64 = input_txids.clone()
+    .filter(|txid| my_transactions.iter().any(|tx| tx.info.txid == *txid))
+      .zip(input_vouts.clone()  )
       .map(|(txid, vout)| {
         client
-          .get_transaction(&txid, None).unwrap()  
+          .get_transaction(&txid, None).unwrap()
+
           .details
           .iter()
           .find(|detail| detail.vout == vout)
           .unwrap()
           .amount
-          .as_sat() as u64
+          .to_sat() as u64
           
       })
       .sum();
-    
-    input_values - tx.output.iter().map(|output| output.value).sum::<u64>() 
+    let other_input_values: u64 =
+      input_txids.clone()
+      .filter(|txid| !my_transactions.iter().any(|tx| tx.info.txid == *txid))
+      .zip(input_vouts)
+      .map(|(txid, vout)| {
+        client
+          .get_raw_transaction(&txid, None).unwrap()  
+          .output
+          .get(vout as usize)
+          .context("Failed to get vout from transaction").unwrap()
+          .value as u64
+      })
+      .sum();
+
+    let output_values: u64 = tx
+      .output
+      .iter()
+      .map(|output| output.value)
+      .sum();
+
+    input_values + other_input_values - output_values
 
 
   }
