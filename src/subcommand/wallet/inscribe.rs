@@ -21,7 +21,7 @@ use {
 use bitcoin::AddressType::P2pkh;
 use std::{ops::Deref, io::BufReader};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt, PartiallySignedTransaction}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
-use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput}, RawTx};
+use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType}, RawTx};
 use lazy_static::__Deref;
 use miniscript::{Segwitv0, psbt::PsbtExt};
 use std::{io::{Write, BufWriter}, borrow::Borrow};
@@ -129,7 +129,7 @@ impl Inscribe {
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
       let mut output = TxOut::default();
       output.value = 500_000;
-      output.script_pubkey = client.get_new_address(Some("candy"), None).unwrap().script_pubkey();
+      output.script_pubkey = client.get_new_address(Some("candy"), Some(AddressType::Bech32)).unwrap().script_pubkey();
       reveal_tx.output.insert(0, output);
 
       // but now we need to add a new input to the reveal_tx
