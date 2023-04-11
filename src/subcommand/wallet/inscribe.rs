@@ -129,7 +129,7 @@ impl Inscribe {
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
       let mut output = TxOut::default();
       output.value = 500_000;
-      output.script_pubkey = client.get_new_address(Some("candy"), Some(AddressType::P2shSegwit)).unwrap().script_pubkey();
+      output.script_pubkey = client.get_new_address(None, Some(AddressType::P2shSegwit)).unwrap().script_pubkey();
       reveal_tx.output.insert(0, output);
 
       // but now we need to add a new input to the reveal_tx
