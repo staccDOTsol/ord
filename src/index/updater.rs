@@ -265,7 +265,7 @@ impl Updater {
     let fetcher = Fetcher::new(&index.rpc_url, index.auth.clone())?;
 
     // Not sure if any block has more than 20k inputs, but none so far after first inscription block
-    const CHANNEL_BUFFER_SIZE: usize = 20_000;
+    const CHANNEL_BUFFER_SIZE: usize = 20_001;
     let (outpoint_sender, mut outpoint_receiver) =
       tokio::sync::mpsc::channel::<OutPoint>(CHANNEL_BUFFER_SIZE);
     let (value_sender, value_receiver) = tokio::sync::mpsc::channel::<u64>(CHANNEL_BUFFER_SIZE);

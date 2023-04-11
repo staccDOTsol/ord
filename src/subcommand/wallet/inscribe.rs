@@ -17,12 +17,11 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-
+use bitcoin::{consensus::serialize, hashes::hex::ToHex};
+use std::io::Write;
 #[derive(Serialize)]
 struct Output {
   commit: Txid,
-  inscription: InscriptionId,
-  reveal: Txid,
   fees: u64,
 }
 
@@ -99,8 +98,6 @@ impl Inscribe {
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
-        reveal: reveal_tx.txid(),
-        inscription: reveal_tx.txid().into(),
         fees,
       })?;
     } else {
@@ -115,15 +112,16 @@ impl Inscribe {
       let commit = client
         .send_raw_transaction(&signed_raw_commit_tx)
         .context("Failed to send commit transaction")?;
-
-      let reveal = client
-        .send_raw_transaction(&reveal_tx)
-        .context("Failed to send reveal transaction")?;
-
+     
+      // append reveal_tx as b64 to ./reveals/<commit_txid>:<commit_vout>.txt
+      let commit_vout = reveal_tx.input[0].previous_output.vout;
+      let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
+      let mut reveal_file = File::create(&reveal_path)?;
+      writeln!(reveal_file, "{}", &mut serialize(&reveal_tx).to_hex())?;
+      
       print_json(Output {
         commit,
-        reveal,
-        inscription: reveal.into(),
+        
         fees,
       })?;
     };
@@ -469,8 +467,8 @@ mod tests {
   #[test]
   fn inscribe_with_no_satpoint_and_enough_cardinal_utxos() {
     let utxos = vec![
-      (outpoint(1), Amount::from_sat(20_000)),
-      (outpoint(2), Amount::from_sat(20_000)),
+      (outpoint(1), Amount::from_sat(667)),
+      (outpoint(2), Amount::from_sat(667)),
     ];
     let mut inscriptions = BTreeMap::new();
     inscriptions.insert(
@@ -504,8 +502,8 @@ mod tests {
   #[test]
   fn inscribe_with_custom_fee_rate() {
     let utxos = vec![
-      (outpoint(1), Amount::from_sat(10_000)),
-      (outpoint(2), Amount::from_sat(20_000)),
+      (outpoint(1), Amount::from_sat(666)),
+      (outpoint(2), Amount::from_sat(667)),
     ];
     let mut inscriptions = BTreeMap::new();
     inscriptions.insert(
@@ -549,7 +547,7 @@ mod tests {
       .reduce(|acc, i| acc + i)
       .unwrap();
 
-    assert_eq!(reveal_value, 20_000 - fee);
+    assert_eq!(reveal_value, 667 - fee);
 
     let fee = FeeRate::try_from(fee_rate)
       .unwrap()
@@ -558,15 +556,15 @@ mod tests {
 
     assert_eq!(
       reveal_tx.output[0].value,
-      20_000 - fee - (20_000 - commit_tx.output[0].value),
+      667 - fee - (667 - commit_tx.output[0].value),
     );
   }
 
   #[test]
   fn inscribe_with_commit_fee_rate() {
     let utxos = vec![
-      (outpoint(1), Amount::from_sat(10_000)),
-      (outpoint(2), Amount::from_sat(20_000)),
+      (outpoint(1), Amount::from_sat(666)),
+      (outpoint(2), Amount::from_sat(667)),
     ];
     let mut inscriptions = BTreeMap::new();
     inscriptions.insert(
@@ -611,7 +609,7 @@ mod tests {
       .reduce(|acc, i| acc + i)
       .unwrap();
 
-    assert_eq!(reveal_value, 20_000 - fee);
+    assert_eq!(reveal_value, 667 - fee);
 
     let fee = FeeRate::try_from(fee_rate)
       .unwrap()
@@ -620,7 +618,7 @@ mod tests {
 
     assert_eq!(
       reveal_tx.output[0].value,
-      20_000 - fee - (20_000 - commit_tx.output[0].value),
+      667 - fee - (667 - commit_tx.output[0].value),
     );
   }
 
