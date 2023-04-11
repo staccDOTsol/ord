@@ -17,8 +17,8 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::PsbtSighashType};
-use bitcoincore_rpc::bitcoincore_rpc_json::SignRawTransactionInput;
+use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType};
+use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, SigHashType}, RawTx};
 use std::{io::Write, borrow::Borrow};
 #[derive(Serialize)]
 struct Output {
@@ -73,7 +73,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx, reveal_tx, recovery_key_pair) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -111,36 +111,86 @@ impl Inscribe {
       }
 
       let signed_raw_commit_tx = client
-        .sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None)?
-        .hex;
+        .sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None).unwrap()
+        ;
+
+        let commit_vout = reveal_tx.input[0].previous_output.vout;
 
       let commit = client
-        .send_raw_transaction(&signed_raw_commit_tx)
+        .send_raw_transaction(&signed_raw_commit_tx.hex)
         .context("Failed to send commit transaction")?;
+      let decoded_transaction = client
+        .decode_raw_transaction(&signed_raw_commit_tx.hex, Some(true))
+        .context("Failed to decode commit transaction").unwrap();
+      // grab signatures from commit for later signing of psbt reveal_tx
+      let mut psbt_sigs = vec![];
+      for input in unsigned_commit_tx.input.iter() {
+        let psbt_sig = decoded_transaction
+            .clone()
+          .vin  
+          .iter()
+          .find(|vin| vin.txid == Some( input.previous_output.txid))
+          .unwrap()
+          .script_sig
+          .clone()
+          .unwrap();
+        let decoded_script = Script::from(psbt_sig.hex);
+        psbt_sigs.push(decoded_script);
+      }   
+
+
+
+      // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
+      let mut output = TxOut::default();
+
+      output.value = 500_000;
+
+      // prepend 
+      reveal_tx.output.insert(0, output);
+      // but now we need to add a new input to the reveal_tx
+      let mut input = TxIn::default();
+      input.previous_output = OutPoint {
+        txid: commit,
+        vout: 0,
+      };
+      reveal_tx.input.push(input);
+
+
+
+      
+      // create psbt SIGHASH Single | AnyoneCanPay
+      let mut psbt = Psbt::from_unsigned_tx(reveal_tx)?;
+
+
+
+
+
+
+      for input in psbt.inputs.iter_mut() {
+        input.sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
+      }
       
 
-      let reveal_tx_input = SignRawTransactionInput {
-        txid: commit,
 
-        vout: 0,
-        script_pub_key: (unsigned_commit_tx.output[0].script_pubkey.clone().to_p2sh()), 
-        amount: Some(Amount::from_sat(unsigned_commit_tx.output[0].value)),
-        redeem_script: None
-      };
+      // add signatures to psbt
 
-        let signed_reveal_tx = client
-        .sign_raw_transaction_with_wallet(&reveal_tx, Some(&[reveal_tx_input]),
-          Some(bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay.into())  )?
-        .hex;
+      for (input, sigs) in psbt.inputs.iter_mut().zip(psbt_sigs.iter()) {
+        input.final_script_sig = Some(sigs.clone());
+      }
+
+      // add a 2nd output for people to 
+
+
+
+
+
 
 
 
       // append reveal_tx as b64 to ./reveals/<commit_txid>:<commit_vout>.txt
-      let commit_vout = reveal_tx.input[0].previous_output.vout;
       let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
       let mut reveal_file = File::create(&reveal_path)?;
-      writeln!(reveal_file, "{}", &mut serialize(&reveal_tx).to_hex())?;
-      writeln!(reveal_file, "{}", &mut signed_reveal_tx.to_hex())?;
+      reveal_file.write_all(&psbt.unsigned_tx.raw_hex().as_bytes())?;
       
       print_json(Output {
         commit,
