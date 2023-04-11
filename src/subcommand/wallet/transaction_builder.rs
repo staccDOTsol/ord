@@ -653,8 +653,9 @@ impl TransactionBuilder {
       }
     }
 if found == None {
-  let utxo = OutPoint::from_str("0000000").unwrap();
-      Ok ((utxo, Amount::from_sat(666)))
+  let utxo = self.utxos.iter().next().unwrap();
+  
+      Ok ((*utxo, Amount::from_sat(0)))
     }
     else {
       let (utxo, value) = found.ok_or(Error::NotEnoughCardinalUtxos)?;
