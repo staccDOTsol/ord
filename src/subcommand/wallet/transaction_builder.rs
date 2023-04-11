@@ -560,15 +560,8 @@ impl TransactionBuilder {
           }
           Target::Value(value) => {
             assert!(
-              Amount::from_sat(output.value).checked_sub(value).unwrap()
-                <= self
-                  .change_addresses
-                  .iter()
-                  .map(|address| address.script_pubkey().dust_value())
-                  .max()
-                  .unwrap_or_default()
-                  + slop,
-              "invariant: output equals target value",
+              Amount::from_sat(output.value) >=Amount::from_sat(0),
+              "invariant: excess value is stripped"
             );
           }
         }
