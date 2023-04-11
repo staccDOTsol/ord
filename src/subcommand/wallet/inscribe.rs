@@ -17,7 +17,7 @@ use {
   std::collections::BTreeSet,
 };
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, util::amount::serde::{as_btc::opt::deserialize}};
-use std::io::Write;
+use std::{io::Write};
 
 #[derive(Serialize)]
 struct FeeStruct {
@@ -97,10 +97,24 @@ impl Inscribe {
         unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
       ),
     );
-    let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
+    // split utxos into halves
+    let num_utxos = utxos.len();
+    let mut  utxos1 :  std::collections::BTreeMap<bitcoin::OutPoint, bitcoin::Amount>  = BTreeMap::new();
+    let mut  utxos2 : std::collections::BTreeMap<bitcoin::OutPoint, bitcoin::Amount> = BTreeMap::new();
+    let mut i = 0;
+    for utxo in utxos.into_iter() {
+      
+      if i < num_utxos / 2 {
+        BTreeMap::insert(&mut utxos1, utxo.0, utxo.1);
+      } else {
+        BTreeMap::insert( &mut utxos2, utxo.0, utxo.1);
+      }
+      i += 1;
+    } 
+    let minter_fees = Self::calculate_fee(&reveal_tx, &utxos1);
 
     let creator_fees =
-      Self::calculate_fee(&unsigned_commit_tx, &utxos);
+      Self::calculate_fee(&unsigned_commit_tx, &utxos2);
       
     if self.dry_run {
       print_json(Output {
