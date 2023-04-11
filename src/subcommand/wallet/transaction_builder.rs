@@ -652,18 +652,22 @@ impl TransactionBuilder {
         break;
       }
     }
-if found == None {
-  let utxo = self.utxos.iter().next().unwrap();
-  
-      Ok ((*utxo, Amount::from_sat(0)))
-    }
-    else {
-      let (utxo, value) = found.ok_or(Error::NotEnoughCardinalUtxos)?;
+    let (utxo, value)  = match found {
+      Some((utxo, value)) => {
+        Ok::<(bitcoin::OutPoint, bitcoin::Amount), Error
+        >((utxo, value))
+      }
+      None =>  {
 
-      self.utxos.remove(&utxo);
+    let utxo = &self.utxos.iter().next().unwrap();
+    let value = Amount::from_sat(0);
+    
+    Ok((**utxo, value))
+      } 
+    }.unwrap();
+    self.utxos.remove(&utxo);
 
-      Ok((utxo, value))
-    }
+    Ok((utxo, value))
   }
 }
 
