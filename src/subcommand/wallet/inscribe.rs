@@ -98,13 +98,12 @@ impl Inscribe {
       ),
     );
     // split utxos into halves
-    let num_utxos = utxos.len();
     let mut  utxos1 :  std::collections::BTreeMap<bitcoin::OutPoint, bitcoin::Amount>  = BTreeMap::new();
     let mut  utxos2 : std::collections::BTreeMap<bitcoin::OutPoint, bitcoin::Amount> = BTreeMap::new();
     let mut i = 0;
     for utxo in utxos.into_iter() {
       
-      if i < num_utxos / 2 {
+      if i % 2 == 0 {
         BTreeMap::insert(&mut utxos1, utxo.0, utxo.1);
       } else {
         BTreeMap::insert( &mut utxos2, utxo.0, utxo.1);
