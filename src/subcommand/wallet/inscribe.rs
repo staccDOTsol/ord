@@ -98,30 +98,13 @@ impl Inscribe {
       ),
     );
     // split utxos into halves
-    let mut  utxos1 :  std::collections::BTreeMap<bitcoin::OutPoint, bitcoin::Amount>  = BTreeMap::new();
-    let mut  utxos2 : std::collections::BTreeMap<bitcoin::OutPoint, bitcoin::Amount> = BTreeMap::new();
-    let mut i = 0;
-    for utxo in utxos.into_iter() {
-      
-      if i % 2 == 0 {
-        BTreeMap::insert(&mut utxos1, utxo.0, utxo.1);
-      } else {
-        BTreeMap::insert( &mut utxos2, utxo.0, utxo.1);
-      }
-      i += 1;
-    } 
-    let minter_fees = Self::calculate_fee(&reveal_tx, &utxos1);
+    let fees = Self::calculate_fee(&unsigned_commit_tx, &reveal_tx, &utxos);
 
-    let creator_fees =
-      Self::calculate_fee(&unsigned_commit_tx, &utxos2);
       
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
-        fees: FeeStruct {
-          creator_fees : creator_fees,
-          minter_fees: minter_fees
-        }
+        fees
       })?;
     } else {
       if !self.no_backup {
@@ -159,23 +142,30 @@ impl Inscribe {
       
       print_json(Output {
         commit,
-        fees: FeeStruct {
-          creator_fees : creator_fees,
-          minter_fees: minter_fees
-        }
+        fees
       })?;
     };
 
     Ok(())
   }
 
-  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
-    tx.input
+  fn calculate_fee(tx1: &Transaction, tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> FeeStruct {
+   let minter_fees =  tx.input
       .iter()
       .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
       .sum::<u64>()
       .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
-      .unwrap()
+      .unwrap();
+    let creator_fees =  tx1.input
+      .iter()
+      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
+      .sum::<u64>()
+      .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
+      .unwrap();
+    let fees = FeeStruct{
+      minter_fees, creator_fees
+    };
+    fees
   }
 
   fn create_inscription_transactions(
