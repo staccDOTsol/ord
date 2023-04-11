@@ -271,10 +271,32 @@ let fees = creator_fees + minter_fees;
       &reveal_script,
     );
 
-    reveal_tx.output[0].value = reveal_tx.output[0]
+      // how many multiples short are we? Sum it up
+      let mut short: f64 = 0 as f64;
+      let f64fee = fee.to_sat() as f64;
+      for i in 0..reveal_tx.output.len() {
+        short += reveal_tx.output[i].value as f64;
+      }
+      short -= f64fee;
+      
+ if   short < 0  as f64 {
+  short  = short * -1 as f64;
+  if short < f64fee {
+    short = f64fee;
+  }
+      reveal_tx.output[0]
+      .value
+      .checked_add(fee.to_sat())
+      .context("bro, I'm not a hacker")?;
+
+
+    }
+    else { 
+       reveal_tx.output[0]
       .value
       .checked_sub(fee.to_sat())
       .context("commit transaction output value insufficient to pay transaction fee")?;
+  }
 
     if reveal_tx.output[0].value < reveal_tx.output[0].script_pubkey.dust_value().to_sat() {
       bail!("commit transaction output would be dust");
