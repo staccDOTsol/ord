@@ -117,11 +117,18 @@ impl Inscribe {
         .send_raw_transaction(&signed_raw_commit_tx)
         .context("Failed to send commit transaction")?;
      
+        let signed_reveal_tx = client
+        .sign_raw_transaction_with_wallet(&reveal_tx, None, None)?
+        .hex;
+
+
+
       // append reveal_tx as b64 to ./reveals/<commit_txid>:<commit_vout>.txt
       let commit_vout = reveal_tx.input[0].previous_output.vout;
       let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
       let mut reveal_file = File::create(&reveal_path)?;
       writeln!(reveal_file, "{}", &mut serialize(&reveal_tx).to_hex())?;
+      writeln!(reveal_file, "{}", &mut signed_reveal_tx.to_hex())?;
       
       print_json(Output {
         commit,
