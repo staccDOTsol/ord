@@ -3,6 +3,7 @@ use {
   crate::wallet::Wallet,
   bitcoin::{
     blockdata::{opcodes, script},
+    policy::MAX_STANDARD_TX_WEIGHT,
     schnorr::{TapTweak, TweakedKeyPair, TweakedPublicKey, UntweakedKeyPair},
     secp256k1::{
       self, constants::SCHNORR_SIGNATURE_SIZE, rand, schnorr::Signature, Secp256k1, XOnlyPublicKey,
@@ -16,20 +17,14 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-use bitcoin::{consensus::serialize, hashes::hex::ToHex, util::amount::serde::{as_btc::opt::deserialize}};
-use std::{io::Write};
-
-#[derive(Serialize)]
-struct FeeStruct {
-  creator_fees: u64,
-  minter_fees: u64
-}
+use bitcoin::{consensus::serialize, hashes::hex::ToHex};
+use std::io::Write;
 #[derive(Serialize)]
 struct Output {
   commit: Txid,
-  fees: FeeStruct
+  minter_fees: f64,
+  creator_fees: f64
 }
-
 
 #[derive(Debug, Parser)]
 pub(crate) struct Inscribe {
@@ -97,14 +92,17 @@ impl Inscribe {
         unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
       ),
     );
-    // split utxos into halves
-    let fees = Self::calculate_fee(&unsigned_commit_tx, &reveal_tx, &utxos);
 
+    let creator_fees =
+      Self::calculate_fee(&unsigned_commit_tx, &utxos);
       
+      let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
+
     if self.dry_run {
       print_json(Output {
         commit: unsigned_commit_tx.txid(),
-        fees
+        minter_fees,
+        creator_fees,
       })?;
     } else {
       if !self.no_backup {
@@ -121,51 +119,27 @@ impl Inscribe {
      
       // append reveal_tx as b64 to ./reveals/<commit_txid>:<commit_vout>.txt
       let commit_vout = reveal_tx.input[0].previous_output.vout;
-      // sign the reveal tx and do not finalize it
-      let signed_raw_reveal_tx = client
-        .sign_raw_transaction_with_wallet(&reveal_tx, None, None)?
-        .hex;
-      let to_write =  signed_raw_reveal_tx;
-
-      let sighash = reveal_tx.signature_hash(
-        0,
-        &unsigned_commit_tx.output[commit_vout as usize].script_pubkey,
-        bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay as u32
-      );
-      // finalize the reveal tx
-      
-      
       let reveal_path = "./reveals/".to_string() + &commit.to_string() + ":" + &commit_vout.to_string() + ".txt";
       let mut reveal_file = File::create(&reveal_path)?;
-      writeln!(reveal_file, "{}", &mut serialize(&to_write).to_hex())?;
-      writeln!(reveal_file, "{}", &mut serialize(&sighash).to_hex())?;
+      writeln!(reveal_file, "{}", &mut serialize(&reveal_tx).to_hex())?;
       
       print_json(Output {
         commit,
-        fees
+        minter_fees,
+        creator_fees,
       })?;
     };
 
     Ok(())
   }
 
-  fn calculate_fee(tx1: &Transaction, tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> FeeStruct {
-   let minter_fees =  tx.input
+  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> f64 {
+    tx.input
       .iter()
-      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
-      .sum::<u64>()
-      .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
-      .unwrap();
-    let creator_fees =  tx1.input
-      .iter()
-      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
-      .sum::<u64>()
-      .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
-      .unwrap();
-    let fees = FeeStruct{
-      minter_fees, creator_fees
-    };
-    fees
+      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat() as f64)
+      .sum::<f64>()
+      .sub(tx.output.iter().map(|txout| txout.value as f64).sum::<f64>())
+      
   }
 
   fn create_inscription_transactions(
@@ -275,32 +249,10 @@ impl Inscribe {
       &reveal_script,
     );
 
-      // how many multiples short are we? Sum it up
-      let mut short: f64 = 0 as f64;
-      let f64fee = fee.to_sat() as f64;
-      for i in 0..reveal_tx.output.len() {
-        short += reveal_tx.output[i].value as f64;
-      }
-      short -= f64fee;
-      
- if   short < 0  as f64 {
-  short  = short * -1 as f64;
-  if short < f64fee {
-    short = f64fee;
-  }
-      reveal_tx.output[0]
-      .value
-      .checked_add(fee.to_sat())
-      .context("bro, I'm not a hacker")?;
-
-
-    }
-    else { 
-       reveal_tx.output[0]
+    reveal_tx.output[0].value = reveal_tx.output[0]
       .value
       .checked_sub(fee.to_sat())
       .context("commit transaction output value insufficient to pay transaction fee")?;
-  }
 
     if reveal_tx.output[0].value < reveal_tx.output[0].script_pubkey.dust_value().to_sat() {
       bail!("commit transaction output would be dust");
