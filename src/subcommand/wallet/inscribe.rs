@@ -73,7 +73,7 @@ impl Inscribe {
     .filter(|(_, amount )| amount.as_sat() > 1000 && amount.as_sat() < 66600) 
     .map(|(txid, amount)| (*txid, *amount))
     .collect();
-  
+
 
     
     let inscriptions = index.get_inscriptions(None)?;
@@ -179,30 +179,42 @@ impl Inscribe {
         input.sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
       }
        psbt.inputs[0].final_script_witness = Some(witness);
-      // should I just sign the raw tx instead???
-      // sign the psbt as a raw tx or with  wallet_process_psbt
-       // is the reveal broadcassted when thee psbt is broadcasted?
-       // let signed_psbt = client.wallet_process_psbt(&psbt.clone()).unwrap();
-       
+       psbt.inputs[0].final_script_sig = Some(Script::new());
+      // sign the psbt
 
+
+
+      
 
        let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, None).unwrap().hex;
+// duh. add the signatures!
+let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap();
 
+// duh. add the signatures! 
+psbt.inputs[0].final_script_witness = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
+psbt.inputs[0].final_script_sig = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].script_sig.clone());
 
-     let  file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
+let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, None).unwrap().hex.raw_hex();
+// broadcast reveal tx
+// I don't want to broadcast the reveal tx, I want to broadcast the psbt later 
+// is that a concern?
+// 
+//let reveal_txid = client.send_raw_transaction(&signed_psbt).unwrap();
+// write to file
+let mut file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
 
-      let  filewriter =  &mut BufWriter::new(file);
+let mut filewriter = &mut BufWriter::new(file);
 
-     writeln!(filewriter, "{}", signed_psbt.raw_hex()).unwrap();
-      print_json(Output {
-        commit: commit_txid,
-        minter_fees,
-        creator_fees,
-      })?;
-    };
+writeln!(filewriter, "{}", signed_psbt).unwrap();
+print_json(Output {
+ commit: commit_txid,
+ minter_fees,
+ creator_fees,
+})?;
+};
 
-    Ok(())
-  }
+Ok(())
+}
 
   fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> f64 {
     tx.input
