@@ -145,12 +145,17 @@ impl Inscribe {
 
       // add the redeem script to the psbt
 
+
       let redeem_script = bitcoin::Script::from(tapsighashhash.to_vec());
       psbt.inputs[1].redeem_script = Some(redeem_script);
       
       // add the pubkey to the psbt
-      let sig : EcdsaSig = EcdsaSig::from_slice(witness_vec[0].as_slice()).unwrap();
-      let pubkey = bitcoin::PublicKey::from_slice(&public_key.to_bytes()).unwrap();
+      /// NonStandardSighashType(97)', src/subcommand/wallet/inscribe.rs:152:76
+      /// 
+      /// 
+      let sig_vec = &witness_vec[0] ;
+      let sig: EcdsaSig =  EcdsaSig::from_slice(&sig_vec).unwrap();
+      let pubkey = bitcoin::PublicKey::from(public_key.to_public_key());
       
       let mut sigs = BTreeMap::new();
 
