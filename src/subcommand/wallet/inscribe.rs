@@ -22,7 +22,7 @@ use miniscript::ToPublicKey;
 use base64::display::Base64Display;
 use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::{psbt::PartiallySignedTransaction, sighash}, PublicKey, secp256k1::{Parity, ecdsa, schnorr}, EcdsaSig, KeyPair, Sighash};
 use serde::de::IntoDeserializer;
-use std::{ops::{Deref, DerefMut}, io::BufReader, collections::HashMap, fmt::Debug, slice};
+use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::BorrowMut};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions, Utxo}, RawTx};
 use lazy_static::__Deref;
@@ -124,28 +124,88 @@ impl Inscribe {
         ;
 
       // broadcast commit tx
+
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
      
-
-      let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
-
-     
-      
-
-      let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
+      // alright so the goal is to not have to broadcast the reveal tx until the psbt is signed and ready to go
+      // so we need to get the psbt from the reveal tx and then sign it and then broadcast it as another user later 
 
       
-      let mut signed_psbt = client.wallet_process_psbt(&encoded.to_string(), Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
-   
-      let mut test: PartiallySignedTransaction = bitcoin::consensus::encode::deserialize(&base64::decode(&signed_psbt).unwrap()).unwrap();
+      let mut psbt: PartiallySignedTransaction = Psbt::from_unsigned_tx(reveal_tx).unwrap();
       
+      // add the witness script to the psbt
+      
+      let witness = Witness::from(witness);
+      let witness_vec = witness.to_vec();
+      let witness_script: bitcoin::Script = bitcoin::consensus::encode::deserialize(&witness_vec[1]  ).unwrap();
+      let witness_script = bitcoin::Script::from(witness_script.to_bytes());
+      
+      
+      psbt.inputs[1].witness_script = Some(witness_script);
+
+      // add the redeem script to the psbt
+
+      let redeem_script = bitcoin::Script::from(tapsighashhash.to_vec());
+      psbt.inputs[1].redeem_script = Some(redeem_script);
+      
+      // add the pubkey to the psbt
+      let sig : EcdsaSig = EcdsaSig::from_slice(witness_vec[0].as_slice()).unwrap();
+      let pubkey = bitcoin::PublicKey::from_slice(&public_key.to_bytes()).unwrap();
+      
+      let mut sigs = BTreeMap::new();
+
+      sigs.insert(pubkey, sig);
+      
+      psbt.inputs[1].partial_sigs =  sigs;
+
+      // add the control block to the psbt
+
+      // add the keypair to the psbt
+      let mut bip32_derivation = psbt.inputs[0].bip32_derivation.clone();
+      let pubkey = key_pair.public_key( );
+      let control_block =  bitcoin::util::taproot::ControlBlock::from(control_block);
+      // leaf_version`, `output_key_parity`, `internal_key`, `merkle_branch`
+      let deriiation_path : bitcoin::util::bip32::DerivationPath = bitcoin::util::bip32::DerivationPath::from_str(&format!("m/0/0/{}", control_block.leaf_version)).unwrap();
+      let finger_print = bitcoin::util::bip32::Fingerprint::from_str ("00000000").unwrap();
+      bip32_derivation.insert(pubkey, (finger_print, deriiation_path));
+      psbt.inputs[1].bip32_derivation = bip32_derivation;
+
+      // add the sighash type to the psbt
+      let sequence_max = Sequence::MAX;
+      let into_max: u32 = sequence_max.into(); 
+      let sequence_max = into_max - 1;
+      psbt.unsigned_tx.input[0].sequence = Sequence  ( sequence_max   ) ;
+
+      /*
+    add the sighash type to the psbt
+    */
+
+
+
+      psbt.inputs[1].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
+
+
+    
       // serialize the psbt
-      let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
-      let didwewin: Transaction   =   test.extract_tx().into();
+      
+
+      let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
+
+      // sign the psbt
+
+
+
+
+      let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+     
+     
+     let test = bitcoin::consensus::encode::deserialize::<PartiallySignedTransaction>(&base64::decode(&signed_psbt).unwrap()).unwrap();
+      let decompiled = test.extract_tx().input[1].previous_output;
+      println!("{}", decompiled.txid);
 
 // write to file
 println!("{}", signed_psbt  );
-let file = File::create("reveals/".to_owned()+&commit_txid.to_string()   + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
+let file = File::create("reveals/".to_owned()+&commit_txid.to_string()   + decompiled.vout.to_string().as_str() + ".psbt").unwrap();
 
 let filewriter = &mut BufWriter::new(file);
 
@@ -263,9 +323,16 @@ Ok(())
       .enumerate()
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
-    let dummy_utxo = utxos.clone().into_iter().min() 
-      .expect("should find dummy utxo");
-    let (mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
+    
+    let dummy_utxo = (
+      OutPoint::null(),
+      TxOut {
+        script_pubkey: commit_tx_address.script_pubkey(),
+        value: output.value,
+      },
+    );
+
+    let ( reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
       OutPoint {
@@ -280,33 +347,34 @@ Ok(())
       &reveal_script,reveal_fee
     );
     println!("reveal tx fee: {}", fee);
-    // sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY
-    let deref_reveal_tx = &mut reveal_tx.clone();
-    
-    let mut sighash_cache = SighashCache::new( deref_reveal_tx );
-
-
+    let mut sighash_cache = SighashCache::new(  & reveal_tx);
+   
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
+        // idnex 1 is tha taproot garbage output
         1,
-        &Prevouts::One(1, output), 
+          &Prevouts::One(1,  
+          output),
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-        SchnorrSighashType::SinglePlusAnyoneCanPay, //  
+        SchnorrSighashType::SinglePlusAnyoneCanPay
       )
       .expect("signature hash should compute");
+
+    // what do I sign aobuve ? which prevout? 
+
 
     let signature = secp256k1.sign_schnorr(
       &secp256k1::Message::from_slice(signature_hash.as_inner())
         .expect("should be cryptographically secure hash"),
       &key_pair,
     );
+// the fo
+let mut witness: Vec<Vec<u8>> = Vec::new();
+witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
+    witness.push(reveal_script.clone().into_bytes());
+    witness.push(control_block.serialize());
 
-    let witness = sighash_cache
-      .witness_mut(1  )
-      .expect("getting mutable witness reference should work");
-    witness.push(signature.as_ref());
-    witness.push(reveal_script);
-    witness.push(&control_block.serialize());
+    let witness = Witness::from_vec(witness);
 
     let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
@@ -318,8 +386,13 @@ Ok(())
       ),
       commit_tx_address
     );
-    // NonStandardSighashType(52)' is not a valid sighash type
-    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block, public_key.to_public_key()))
+    let reveal_tx = reveal_tx.clone();
+
+
+    // let reveal_tx = reveal_tx.clone();
+
+    Ok((unsigned_commit_tx, reveal_tx
+      , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block, public_key.to_public_key()))
   }
 
   fn backup_recovery_key(
@@ -375,6 +448,7 @@ Ok(())
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
+        
       }, TxIn {
         previous_output: input,
         script_sig: script::Builder::new().into_script(),
@@ -388,10 +462,14 @@ Ok(())
       // SINGLE AND ANYONECANPAY
      
     };
+    //println!("reveal tx: {}", reveal_tx);
+    //println!("reveal tx: {}", reveal_tx);
 
-    // I can specify sighash types at the time i create the tx
-    //let sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY;
+    // make reveal tx sighash type SINGLE | ANYONECANPAY
+    //let sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY; 
+
     
+
 
 
     
@@ -407,17 +485,17 @@ Ok(())
       ];
       
     let fee = {
-      let mut reveal_tx = reveal_tx.clone();
+      let mut reveal_txx = reveal_tx.clone();
 
-      reveal_tx.input[1].witness.push(
+      reveal_txx.input[1].witness.push(
         Signature::from_slice(&[0; SCHNORR_SIGNATURE_SIZE])
           .unwrap()
           .as_ref(),
       );
-      reveal_tx.input[1].witness.push(script);
-      reveal_tx.input[1].witness.push(&control_block.serialize());
+      reveal_txx.input[1].witness.push(script);
+      reveal_txx.input[1].witness.push(&control_block.serialize());
 
-      fee_rate.fee(reveal_tx.vsize())
+      fee_rate.fee(reveal_txx.vsize())
     };
 
     (reveal_tx, witness, fee)
