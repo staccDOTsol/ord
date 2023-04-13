@@ -131,20 +131,14 @@ impl Inscribe {
       // alright so the goal is to not have to broadcast the reveal tx until the psbt is signed and ready to go
       // so we need to get the psbt from the reveal tx and then sign it and then broadcast it as another user later 
 
+      // update sighash types in reveal tx
+
+      //
+
       
       let mut psbt: PartiallySignedTransaction = Psbt::from_unsigned_tx(reveal_tx).unwrap();
 
-      // we know the sighash type is single plus anyone can pay so we can just hardcode it here
-
-      let sighash_type = EcdsaSighashType::SinglePlusAnyoneCanPay.into();
-
-      // set the sighash for the reveal tx in index 1
-
-      psbt.inputs[1].sighash_type = Some(sighash_type);
-
-      // set the sighash for the commit tx in index 0
-
-      psbt.inputs[0].sighash_type = Some(EcdsaSighashType::All.into() );
+      
 
       // set the witness for the reveal tx in index 1
      // let witness_utxo  // ? we don't have the witness utxo for the reveal tx yet
@@ -156,13 +150,13 @@ impl Inscribe {
       let redeem_script = witness_vec[1].clone();
       let control_block = witness_vec[2].clone();
       let signature = witness_vec[0].clone();
-      psbt.inputs[1].redeem_script = Some(Script::from(redeem_script)); 
+   //   psbt.inputs[1].redeem_script = Some(Script::from(redeem_script)); 
       
 
       
       
       // sign using sign_raw_transaction_with_wallet
-      let hexpsbt = bitcoin::consensus::serialize(&psbt).to_vec();
+      let hexpsbt = bitcoin::consensus::serialize(&psbt) ;
       let base64psbt = base64::encode(hexpsbt   );
 
     let signed_psbt = client.wallet_process_psbt(&base64psbt, Some(true),
@@ -426,13 +420,11 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
-        
       }, TxIn {
         previous_output: input,
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        
       }],
       output: vec![ output2, output],
       lock_time: PackedLockTime::ZERO,
