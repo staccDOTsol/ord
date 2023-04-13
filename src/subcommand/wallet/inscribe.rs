@@ -18,8 +18,9 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
+use base64::display::Base64Display;
 use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction, PublicKey};
-use std::{ops::Deref, io::BufReader, collections::HashMap};
+use std::{ops::Deref, io::BufReader, collections::HashMap, fmt::Debug};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions}, RawTx};
 use lazy_static::__Deref;
@@ -153,19 +154,20 @@ impl Inscribe {
       // add the utxo
       psbt.inputs[0].non_witness_utxo = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap());
 
-    
-      let encoded = serde_json::to_string(&psbt).unwrap();
+     
+      let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
 
       let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
 
 
        let signed_psbt = client.wallet_process_psbt(&encoded, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
-
-
-      // check the sigs 
-      let check_psbt  : PartiallySignedTransaction = serde_json::from_str(&signed_psbt).unwrap();
-      let tx = check_psbt.extract_tx();
-      
+      // base64 decode the psbt
+      let test = base64::decode(signed_psbt.clone()).unwrap();
+      // deserialize the psbt
+      let test = bitcoin::consensus::encode::deserialize::<bitcoin::util::psbt::PartiallySignedTransaction>(&test).unwrap();
+      // serialize the psbt
+     
+      let didwewin: Transaction   =   test.extract_tx().into();
 
 // write to file
 println!("{}", signed_psbt  );
