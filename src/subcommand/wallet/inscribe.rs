@@ -337,7 +337,7 @@ Ok(())
       },
       *dummy_utxo.0,
       TxOut {
-        script_pubkey: Script::default(),
+        script_pubkey:  destination.script_pubkey(),
         value: output.value,
       },
       &reveal_script,reveal_fee
