@@ -193,8 +193,17 @@ let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>
 // duh. add the signatures! 
 psbt.inputs[0].final_script_witness = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
 psbt.inputs[0].final_script_sig = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].script_sig.clone());
+// anything else? 
+psbt.inputs[0].witness_utxo = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
+psbt.inputs[0].witness_script = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
+psbt.inputs[0].final_script_sig = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
+psbt.inputs[0].final_script_witness = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
+psbt.inputs[0].sighash_type = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
 
-let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, None).unwrap().hex.raw_hex();
+
+// serialize the psbt
+let signed_psbt = psbt.clone().extract_tx().clone().to_string();
+
 // broadcast reveal tx
 // I don't want to broadcast the reveal tx, I want to broadcast the psbt later 
 // is that a concern?
