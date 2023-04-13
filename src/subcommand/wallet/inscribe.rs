@@ -308,7 +308,7 @@ Ok(())
 
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
-        0,
+        1,
         &Prevouts::All(&[output]),  
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
         SchnorrSighashType::SinglePlusAnyoneCanPay, //  
