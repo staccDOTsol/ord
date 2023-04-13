@@ -246,7 +246,7 @@ Ok(())
       .expect("should compute control block");
 
     let commit_tx_address = Address::p2tr_tweaked(taproot_spend_info.output_key(), network);
-
+    println!("commit tx address: {}", commit_tx_address);
     let (_, _, reveal_fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -257,6 +257,7 @@ Ok(())
         value: 0,
       },
       &reveal_script,
+      Amount::ZERO,
     );
 
     let unsigned_commit_tx = TransactionBuilder::build_transaction_with_value(
@@ -266,7 +267,7 @@ Ok(())
       commit_tx_address.clone(),
       change,
       commit_fee_rate,
-      reveal_fee + TransactionBuilder::TARGET_POSTAGE,
+      TransactionBuilder::TARGET_POSTAGE,
     )?;
 
     let (vout, output) = unsigned_commit_tx
@@ -275,8 +276,7 @@ Ok(())
       .enumerate()
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
-    let dummy_utxo = utxos.clone().into_iter()
-    .find  (|(_outpoint, amount)| amount<  &&Amount::from_sat(1000) ) 
+    let dummy_utxo = utxos.clone().into_iter().min() 
       .expect("should find dummy utxo");
     let (mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
@@ -290,8 +290,9 @@ Ok(())
         script_pubkey: destination.script_pubkey(),
         value: output.value,
       },
-      &reveal_script,
+      &reveal_script,reveal_fee
     );
+    println!("reveal tx fee: {}", fee);
     // sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY
     let deref_reveal_tx = &mut reveal_tx.clone();
     
@@ -369,12 +370,13 @@ Ok(())
     input2: OutPoint,
     output: TxOut,
     script: &Script,
+    a_fee: Amount,
   ) -> (Transaction, Vec<Vec<u8>> , Amount) {
     
     
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
       let mut output2 = TxOut::default();
-      output2.value = 6666;
+      output2.value = 6666 + a_fee.as_sat();
       output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
      // create a tx as previous output with a dummy input
    
