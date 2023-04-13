@@ -19,7 +19,7 @@ use {
   std::collections::BTreeSet,
 };
 use base64::display::Base64Display;
-use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction, PublicKey, secp256k1::Parity, EcdsaSig, KeyPair};
+use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction, PublicKey, secp256k1::{Parity, ecdsa}, EcdsaSig, KeyPair};
 use std::{ops::Deref, io::BufReader, collections::HashMap, fmt::Debug};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions}, RawTx};
@@ -145,14 +145,19 @@ impl Inscribe {
        witness.push(signature.as_ref());
     witness.push(reveal_script);
     witness.push(&control_block.serialize()); */
-    let witness_signature = EcdsaSig::from_slice(&witness_vec[0]).unwrap();
+    //  NonStandardSighashType(96)'
+    let witness_signature = EcdsaSig { sig:
+                
+    ecdsa::Signature::from_der(&witness_vec[0]).unwrap(),
+      hash_ty: EcdsaSighashType::SinglePlusAnyoneCanPay };
+    // can I derive pubkey from signature?
+    let public_key = bitcoin::PublicKey::from_slice(&witness_vec[0]).unwrap();
       let reveal_script = Script::from(witness_vec[1].to_vec());  
       let control_block = ControlBlock::from_slice(&witness_vec[2]).unwrap();
       let mut bip32_derivation : std::collections::BTreeMap<bitcoin::secp256k1::PublicKey, (Fingerprint, DerivationPath)>  = std::collections::BTreeMap::new();
       bip32_derivation.insert(taproot.public_key(parity), (Fingerprint::default(), DerivationPath::default()));
    // on an `Err` value: Hex(InvalidLength(66, 64))',
-    let public_key   = key_pair.public_key();
-    psbt.inputs[1].partial_sigs.insert(bitcoin::PublicKey::from_slice(public_key.serialize().as_ref()).unwrap(), witness_signature);
+    psbt.inputs[1].partial_sigs.insert(public_key, witness_signature);
     psbt.inputs[1].bip32_derivation = bip32_derivation;
     psbt.inputs[1].redeem_script = Some(reveal_script);
     psbt.inputs[1].witness_script = Some(Script::from(control_block.serialize()));
