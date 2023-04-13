@@ -24,7 +24,7 @@ use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::
 use serde::de::IntoDeserializer;
 use std::{ops::{Deref, DerefMut}, io::BufReader, collections::HashMap, fmt::Debug, slice};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
-use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions}, RawTx};
+use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions, Utxo}, RawTx};
 use lazy_static::__Deref;
 use miniscript::{Segwitv0, psbt::PsbtExt};
 use std::{io::{Write, BufWriter}, borrow::Borrow};
@@ -105,8 +105,8 @@ impl Inscribe {
     utxos.insert(
       reveal_tx.input[1].previous_output,
       Amount::from_sat(
-        unsigned_commit_tx.output[reveal_tx.input[1].previous_output.vout as usize].value,
-      ),
+          unsigned_commit_tx.output[reveal_tx.input[1].previous_output.vout as usize].value,
+        ),
     );
 
     let creator_fees =
@@ -132,30 +132,15 @@ impl Inscribe {
       // broadcast commit tx
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
      
-      // create new psbt with the inputs and outputs
-      let mut psbt =  Psbt::from_unsigned_tx(reveal_tx).unwrap();
-      let witness_vec = witness.to_vec();
-     // sign the psbt
-      let sig = EcdsaSig { sig: 
-      secp256k1::Signature::from_compact(witness_vec[0].as_ref()).unwrap(),
-      hash_ty: EcdsaSighashType::SinglePlusAnyoneCanPay };
 
-      
-
-      // add the signature to the psbt
-      psbt.inputs[1].partial_sigs.insert(public_key, sig);
-      // add the sighash type
-      psbt.inputs[1].sighash_type = Some (EcdsaSighashType::SinglePlusAnyoneCanPay.into());
-
-
-      
-
+      let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
       let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
-      let signed_psbt = client.wallet_process_psbt(&encoded, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
-      // base64 decode the psbt
-      let test = base64::decode(signed_psbt.clone()).unwrap();
-      // deserialize the psbt
-      let test = bitcoin::consensus::encode::deserialize::<bitcoin::util::psbt::PartiallySignedTransaction>(&test).unwrap();
+
+      
+      let mut signed_psbt = client.wallet_process_psbt(&encoded.to_string(), Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+   
+      let mut test: PartiallySignedTransaction = bitcoin::consensus::encode::deserialize(&base64::decode(&signed_psbt).unwrap()).unwrap();
+      
       // serialize the psbt
       let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
       let didwewin: Transaction   =   test.extract_tx().into();
