@@ -141,20 +141,20 @@ impl Inscribe {
       let witness_script = Script::from(witness_vec[0].to_vec());
       let witness_script = Script::from(witness_script.to_bytes());
 
-      psbt.inputs[0].witness_script = Some(witness_script.clone());
+      psbt.inputs[1].witness_script = Some(witness_script.clone());
       let redeem_script = Script::from(witness_vec[1].to_vec());
       let redeem_script = Script::from(redeem_script.to_bytes());
 
       
       // add the redeem script
-      psbt.inputs[0].redeem_script = Some(redeem_script);
+      psbt.inputs[1].redeem_script = Some(redeem_script);
       
       // add the sighash type
-      psbt.inputs[0].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
+      psbt.inputs[1].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
       // add the utxo
-      psbt.inputs[0].non_witness_utxo = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap());
+      psbt.inputs[1].non_witness_utxo = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap());
+      
 
-     
       let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
 
       let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
@@ -384,21 +384,47 @@ Ok(())
       let mut output2 = TxOut::default();
       output2.value = 6666;
       output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
-     
-    let reveal_tx = Transaction {
+     // create a tx as previous output with a dummy input
+     let dummyTx = Transaction {
       input: vec![TxIn {
+        previous_output: OutPoint::default(),
+        script_sig: script::Builder::new().into_script(),
+        witness: Witness::new(),
+        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+      }],
+      output: vec![output2.clone()],
+      lock_time: PackedLockTime::ZERO,
+      version: 1};
+
+
+     let dummy = TxIn { 
+      previous_output: OutPoint { txid: dummyTx.txid(), vout: 0 },
+      script_sig: script::Builder::new().into_script(),
+      witness: Witness::new(),
+      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+    };
+    let reveal_tx = Transaction {
+      input: vec![dummy, TxIn {
         previous_output: input,
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
       }],
-      output: vec![output2, output],
+      output: vec![output, output2],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // SINGLE AND ANYONECANPAY
      
     };
+
+    // I can specify sighash types at the time i create the tx
+    //let sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY;
+    
+
+
+    
+
     
 
        let witness: Vec<Vec<u8>> = vec![
