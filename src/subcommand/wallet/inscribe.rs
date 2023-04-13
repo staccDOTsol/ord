@@ -19,7 +19,7 @@ use {
   std::collections::BTreeSet,
 };
 use base64::display::Base64Display;
-use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction, PublicKey, secp256k1::Parity, EcdsaSig};
+use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction, PublicKey, secp256k1::Parity, EcdsaSig, KeyPair};
 use std::{ops::Deref, io::BufReader, collections::HashMap, fmt::Debug};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions}, RawTx};
@@ -86,7 +86,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, taproot, parity) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, taproot, parity, key_pair) =  
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -101,9 +101,9 @@ impl Inscribe {
       )?;
 
     utxos.insert(
-      reveal_tx.input[0].previous_output,
+      reveal_tx.input[1].previous_output,
       Amount::from_sat(
-        unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
+        unsigned_commit_tx.output[reveal_tx.input[1].previous_output.vout as usize].value,
       ),
     );
 
@@ -145,18 +145,19 @@ impl Inscribe {
        witness.push(signature.as_ref());
     witness.push(reveal_script);
     witness.push(&control_block.serialize()); */
-    let witness_signature = Signature::from_slice(&witness_vec[0]).unwrap();
+    let witness_signature = EcdsaSig::from_slice(&witness_vec[0]).unwrap();
       let reveal_script = Script::from(witness_vec[1].to_vec());  
       let control_block = ControlBlock::from_slice(&witness_vec[2]).unwrap();
       let mut bip32_derivation : std::collections::BTreeMap<bitcoin::secp256k1::PublicKey, (Fingerprint, DerivationPath)>  = std::collections::BTreeMap::new();
       bip32_derivation.insert(taproot.public_key(parity), (Fingerprint::default(), DerivationPath::default()));
-   
-    let public_key = bitcoin::PublicKey::from_str(taproot.to_string().as_str()).unwrap();
-    psbt.inputs[1].partial_sigs.insert(public_key, EcdsaSig::from_str(witness_signature.to_string().as_str()).unwrap());
+   // on an `Err` value: Hex(InvalidLength(66, 64))',
+    let public_key   = key_pair.public_key();
+    psbt.inputs[1].partial_sigs.insert(bitcoin::PublicKey::from_slice(public_key.serialize().as_ref()).unwrap(), witness_signature);
     psbt.inputs[1].bip32_derivation = bip32_derivation;
     psbt.inputs[1].redeem_script = Some(reveal_script);
     psbt.inputs[1].witness_script = Some(Script::from(control_block.serialize()));
     psbt.inputs[1].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
+    
       // add the signature
       // add the control block
       // add the public key
@@ -225,7 +226,7 @@ Ok(())
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool,
-  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, XOnlyPublicKey, Parity ), anyhow::Error> {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, XOnlyPublicKey, Parity, KeyPair)> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -358,7 +359,7 @@ Ok(())
       ),
       commit_tx_address
     );
-    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), public_key, _parity))
+    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), public_key, _parity, key_pair))
   }
 
   fn backup_recovery_key(
@@ -456,13 +457,13 @@ Ok(())
     let fee = {
       let mut reveal_tx = reveal_tx.clone();
 
-      reveal_tx.input[0].witness.push(
+      reveal_tx.input[1].witness.push(
         Signature::from_slice(&[0; SCHNORR_SIGNATURE_SIZE])
           .unwrap()
           .as_ref(),
       );
-      reveal_tx.input[0].witness.push(script);
-      reveal_tx.input[0].witness.push(&control_block.serialize());
+      reveal_tx.input[1].witness.push(script);
+      reveal_tx.input[1].witness.push(&control_block.serialize());
 
       fee_rate.fee(reveal_tx.vsize())
     };
