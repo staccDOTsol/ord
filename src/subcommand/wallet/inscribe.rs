@@ -440,14 +440,14 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
     let reveal_tx = Transaction {
       input: vec![ TxIn {
         previous_output: input2,
-        script_sig: script::Builder::new().into_script(),
+        script_sig: Script::new(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
         
       }, TxIn {
         previous_output: input,
-        script_sig: Script::default(),
+        script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
