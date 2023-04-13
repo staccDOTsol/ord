@@ -176,10 +176,6 @@ impl Inscribe {
       psbt.inputs[1].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
 
 
-    
-      // serialize the psbt
-    
-
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
 
       // sign the psbt
@@ -187,10 +183,10 @@ impl Inscribe {
 
 
 
-      let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+  //    let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
      
      
-     let test = bitcoin::consensus::encode::deserialize::<PartiallySignedTransaction>(&base64::decode(&signed_psbt).unwrap()).unwrap();
+     let test = bitcoin::consensus::encode::deserialize::<PartiallySignedTransaction>(&base64::decode(&psbt).unwrap()).unwrap();
       
       
       
@@ -204,12 +200,12 @@ impl Inscribe {
       println!("{}", decompiled.txid);
 
 // write to file
-println!("{}", signed_psbt  );
+println!("{}", psbt  );
 let file = File::create("reveals/".to_owned()+&commit_txid.to_string()   + decompiled.vout.to_string().as_str() + ".psbt").unwrap();
 
 let filewriter = &mut BufWriter::new(file);
 
-writeln!(filewriter, "{}", signed_psbt).unwrap();
+writeln!(filewriter, "{}", psbt).unwrap();
 print_json(Output {
  commit: commit_txid,
  minter_fees,
@@ -328,7 +324,7 @@ Ok(())
       .iter()
       .find(|(outpoint, _amount)| outpoint.txid != unsigned_commit_tx.txid())
       .expect("should find dummy utxo");
-    let ( reveal_tx,  witness, fee) = Self::build_reveal_transaction(
+    let ( mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
       OutPoint {
@@ -343,7 +339,7 @@ Ok(())
       &reveal_script,reveal_fee
     );
     println!("reveal tx fee: {}", fee);
-    let mut sighash_cache = SighashCache::new(  & reveal_tx);
+    let mut sighash_cache = SighashCache::new(  & mut reveal_tx);
    
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
@@ -382,7 +378,6 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
       ),
       commit_tx_address
     );
-    let reveal_tx = reveal_tx.clone();
 
 
     // let reveal_tx = reveal_tx.clone();
