@@ -18,7 +18,7 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-
+use miniscript::ToPublicKey;
 use base64::display::Base64Display;
 use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::{psbt::PartiallySignedTransaction, sighash}, PublicKey, secp256k1::{Parity, ecdsa, schnorr}, EcdsaSig, KeyPair, Sighash};
 use serde::de::IntoDeserializer;
@@ -88,7 +88,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash ) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash , key_pair , control_block) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -132,7 +132,6 @@ impl Inscribe {
       // broadcast commit tx
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
      
-     
       // create new psbt with the inputs and outputs
       let mut psbt =  Psbt::from_unsigned_tx(reveal_tx).unwrap();
       let witness_vec = witness.clone().to_vec();
@@ -140,8 +139,22 @@ impl Inscribe {
       let sig = EcdsaSig { sig: 
       secp256k1::Signature::from_compact(witness_vec[0].as_ref()).unwrap(),
       hash_ty: EcdsaSighashType::SinglePlusAnyoneCanPay };
-      let public_key: PublicKey = PublicKey::from_slice(&tapsighashhash).unwrap();
+
+      // extract the public key from the witness
+      let public_key3 = PublicKey::from_slice(&witness_vec[1]).unwrap();
+   
+      // which one is the correct one?
+      let public_key = public_key3;
+      
+
+      // add the signature to the psbt
       psbt.inputs[1].partial_sigs.insert(public_key, sig);
+      // add the sighash type
+      psbt.inputs[1].sighash_type = Some (EcdsaSighashType::SinglePlusAnyoneCanPay.into());
+
+
+      
+
       let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
       let signed_psbt = client.wallet_process_psbt(&encoded, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
       // base64 decode the psbt
@@ -189,7 +202,7 @@ Ok(())
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash )> {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock)> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -323,7 +336,7 @@ Ok(())
       commit_tx_address
     );
     // NonStandardSighashType(52)' is not a valid sighash type
-    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), signature_hash ))
+    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block ))
   }
 
   fn backup_recovery_key(
