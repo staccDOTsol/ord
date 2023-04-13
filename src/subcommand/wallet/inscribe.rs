@@ -102,6 +102,13 @@ impl Inscribe {
         self.no_limit,
       )?;
 
+      utxos.insert(
+        reveal_tx.input[0].previous_output,
+        Amount::from_sat(
+            unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
+          ),
+      );
+  
     utxos.insert(
       reveal_tx.input[1].previous_output,
       Amount::from_sat(
@@ -134,6 +141,10 @@ impl Inscribe {
      
 
       let mut psbt = bitcoin::util::psbt::PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
+
+     
+      
+
       let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
 
       
@@ -240,6 +251,7 @@ Ok(())
       &control_block,
       reveal_fee_rate,
       OutPoint::null(),
+      OutPoint::null(),
       TxOut {
         script_pubkey: destination.script_pubkey(),
         value: 0,
@@ -250,7 +262,7 @@ Ok(())
     let unsigned_commit_tx = TransactionBuilder::build_transaction_with_value(
       satpoint,
       inscriptions,
-      utxos,
+      utxos.clone(),
       commit_tx_address.clone(),
       change,
       commit_fee_rate,
@@ -263,7 +275,9 @@ Ok(())
       .enumerate()
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
-
+    let dummy_utxo = utxos.clone().into_iter()
+    .find  (|(_outpoint, amount)| amount<  &&Amount::from_sat(1000) ) 
+      .expect("should find dummy utxo");
     let (mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -271,6 +285,7 @@ Ok(())
         txid: unsigned_commit_tx.txid(),
         vout: vout.try_into().unwrap(),
       },
+      dummy_utxo.0,
       TxOut {
         script_pubkey: destination.script_pubkey(),
         value: output.value,
@@ -351,6 +366,7 @@ Ok(())
     control_block: &ControlBlock,
     fee_rate: FeeRate,
     input: OutPoint,
+    input2: OutPoint,
     output: TxOut,
     script: &Script,
   ) -> (Transaction, Vec<Vec<u8>> , Amount) {
@@ -361,26 +377,16 @@ Ok(())
       output2.value = 6666;
       output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
      // create a tx as previous output with a dummy input
-     let dummyTx = Transaction {
-      input: vec![TxIn {
-        previous_output: OutPoint::default(),
+   
+
+    let reveal_tx = Transaction {
+      input: vec![ TxIn {
+        previous_output: input2,
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-      }],
-      output: vec![output2.clone()],
-      lock_time: PackedLockTime::ZERO,
-      version: 1};
-
-
-     let dummy = TxIn { 
-      previous_output: OutPoint { txid: dummyTx.txid(), vout: 0 },
-      script_sig: script::Builder::new().into_script(),
-      witness: Witness::new(),
-      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-    };
-    let reveal_tx = Transaction {
-      input: vec![dummy, TxIn {
+        
+      }, TxIn {
         previous_output: input,
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
