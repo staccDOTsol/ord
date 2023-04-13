@@ -175,7 +175,7 @@ Ok(())
 
   fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> f64 {
     tx.input
-      .iter()
+      .iter()[1]
       .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat() as f64)
       .sum::<f64>()
       .sub(tx.output.iter().map(|txout| txout.value as f64).sum::<f64>())
