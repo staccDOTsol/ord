@@ -164,16 +164,17 @@ impl Inscribe {
       // sign using sign_raw_transaction_with_wallet
 
 
-      let signed_psbt = client.sign_raw_transaction_with_wallet( &psbt.extract_tx(), None, Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()   ) ).unwrap().hex;
+     //let signed_psbt = client.sign_raw_transaction_with_wallet( &psbt.extract_tx(), None, Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()   ) ).unwrap().hex;
+      // invalid magick ? 
+      //let signed_psbt = client.sign_raw_transaction_with_wallet( &psbt.extract_tx(), None, Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()   ) ).unwrap().hex;
+      // or should we process_psbt? 
 
-      
-
+    let signed_psbt = client.wallet_process_psbt(&serde_json::to_string(&psbt).unwrap(), Some(true),
+    Some( EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None )  .unwrap().psbt;
       // broadcast reveal tx
+      let test: Psbt = bitcoin::consensus::deserialize(base64::decode(signed_psbt
+      .as_bytes()).unwrap().as_slice()).unwrap();
 
-      //let reveal_txid = client.send_raw_transaction(&signed_psbt).unwrap();
-      let test: PartiallySignedTransaction = bitcoin::consensus::deserialize(&signed_psbt ).unwrap();
-
-      let encoded = Base64Display::with_config(&signed_psbt, base64::STANDARD);
     //  println!("reveal txid: {}", reveal_txid);
       println!("commit txid: {}", commit_txid);
 
@@ -190,12 +191,12 @@ impl Inscribe {
       
 
 // write to file
-println!("{}", encoded  );
+println!("{}", signed_psbt.clone());
 let file = File::create("reveals/".to_owned()+&commit_txid.to_string()   + decompiled.vout.to_string().as_str() + ".psbt").unwrap();
 
 let filewriter = &mut BufWriter::new(file);
 
-writeln!(filewriter, "{}", encoded ).unwrap();
+writeln!(filewriter, "{}", signed_psbt.clone());  
 print_json(Output {
  commit: commit_txid,
  minter_fees,
