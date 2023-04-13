@@ -88,7 +88,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash , key_pair , control_block,public_key) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash , key_pair , control_block,signature, public_key) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -154,7 +154,7 @@ impl Inscribe {
       /// 
       /// 
       let sig_vec = &witness_vec[0] ;
-      let sig: EcdsaSig =  EcdsaSig::from_slice(&sig_vec).unwrap();
+      let sig = EcdsaSig::from_slice( sig_vec).unwrap();
       let pubkey = bitcoin::PublicKey::from(public_key.to_public_key());
       
       let mut sigs = BTreeMap::new();
@@ -245,7 +245,7 @@ Ok(())
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock, PublicKey)> {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock, Signature,  PublicKey)> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -397,7 +397,7 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
     // let reveal_tx = reveal_tx.clone();
 
     Ok((unsigned_commit_tx, reveal_tx
-      , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block, public_key.to_public_key()))
+      , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block, signature, public_key.to_public_key()))
   }
 
   fn backup_recovery_key(
