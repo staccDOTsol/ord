@@ -160,13 +160,12 @@ impl Inscribe {
       // create new psbt with the inputs and outputs
       let psbt = &mut Psbt::from_unsigned_tx(unsigned_reveal_tx).unwrap();
     
-      
-let serialized = bitcoin::consensus::encode::serialize(&psbt).to_hex()  ;
+      let encoded = serde_json::to_string(&psbt).unwrap();
 
 
-       let signed_psbt = client.wallet_process_psbt(&serialized, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
-       
+       let signed_psbt = client.wallet_process_psbt(&encoded, Some(false), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
 // write to file
+println!("{}", signed_psbt  );
 let file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
 
 let filewriter = &mut BufWriter::new(file);
@@ -305,9 +304,9 @@ Ok(())
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
         0,
-        &Prevouts::All(&[output]),
+        &Prevouts::All(&[output]),  
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-        SchnorrSighashType::SinglePlusAnyoneCanPay,
+        SchnorrSighashType::SinglePlusAnyoneCanPay, //  
       )
       .expect("signature hash should compute");
 
