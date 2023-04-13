@@ -86,7 +86,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -136,19 +136,6 @@ impl Inscribe {
       // add the witness script
 
 
-      let witness_vec: Vec<Vec<u8>> = witness.to_owned().to_vec();
-      
-      let witness_script = Script::from(witness_vec[0].to_vec());
-      let witness_script = Script::from(witness_script.to_bytes());
-
-      psbt.inputs[1].witness_script = Some(witness_script.clone());
-      let redeem_script = Script::from(witness_vec[1].to_vec());
-      let redeem_script = Script::from(redeem_script.to_bytes());
-
-      
-      // add the redeem script
-      psbt.inputs[1].redeem_script = Some(redeem_script);
-      
       // add the sighash type
       psbt.inputs[1].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
       // add the utxo
@@ -206,7 +193,7 @@ Ok(())
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool,
-  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness) > {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair) > {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -306,6 +293,7 @@ Ok(())
     let mut revelly = reveal_tx.clone();
     let mut sighash_cache = SighashCache::new( &mut revelly);
 
+/*
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
         1,
@@ -327,7 +315,7 @@ Ok(())
     witness.push(signature.as_ref());
     witness.push(reveal_script);
     witness.push(&control_block.serialize());
-
+*/
     let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
     let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
@@ -339,8 +327,7 @@ Ok(())
       commit_tx_address
     );
 
-
-    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone() ))
+    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair ))
   }
 
   fn backup_recovery_key(
