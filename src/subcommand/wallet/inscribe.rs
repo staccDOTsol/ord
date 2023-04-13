@@ -137,7 +137,7 @@ impl Inscribe {
       
       let witness = Witness::from(witness);
       let witness_vec = witness.to_vec();
-      let witness_script: bitcoin::Script = bitcoin::consensus::encode::deserialize(&witness_vec[1]  ).unwrap();
+      let witness_script:  bitcoin::Script = bitcoin::Script::from(witness_vec[1].to_vec());  
       let witness_script = bitcoin::Script::from(witness_script.to_bytes());
       
       
