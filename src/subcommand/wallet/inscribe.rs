@@ -382,7 +382,7 @@ Ok(())
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
       }],
-      output: vec![output, output2],
+      output: vec![ output2, output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // SINGLE AND ANYONECANPAY
