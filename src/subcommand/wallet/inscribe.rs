@@ -324,14 +324,10 @@ Ok(())
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
     
-    let dummy_utxo = (
-      OutPoint::null(),
-      TxOut {
-        script_pubkey: commit_tx_address.script_pubkey(),
-        value: output.value,
-      },
-    );
-
+    let dummy_utxo = utxos
+      .iter()
+      .find(|(outpoint, _amount)| outpoint.txid != unsigned_commit_tx.txid())
+      .expect("should find dummy utxo");
     let ( reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -339,7 +335,7 @@ Ok(())
         txid: unsigned_commit_tx.txid(),
         vout: vout.try_into().unwrap(),
       },
-      dummy_utxo.0,
+      *dummy_utxo.0,
       TxOut {
         script_pubkey: destination.script_pubkey(),
         value: output.value,
