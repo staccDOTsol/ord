@@ -337,7 +337,7 @@ Ok(())
       },
       *dummy_utxo.0,
       TxOut {
-        script_pubkey: destination.script_pubkey(),
+        script_pubkey: Script::default(),
         value: output.value,
       },
       &reveal_script,reveal_fee
@@ -447,7 +447,7 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
         
       }, TxIn {
         previous_output: input,
-        script_sig: script::Builder::new().into_script(),
+        script_sig: Script::default(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         
