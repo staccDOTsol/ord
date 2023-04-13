@@ -102,19 +102,6 @@ impl Inscribe {
         self.no_limit,
       )?;
 
-      utxos.insert(
-        reveal_tx.input[0].previous_output,
-        Amount::from_sat(
-            unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
-          ),
-      );
-  
-    utxos.insert(
-      reveal_tx.input[1].previous_output,
-      Amount::from_sat(
-          unsigned_commit_tx.output[reveal_tx.input[1].previous_output.vout as usize].value,
-        ),
-    );
 
     let creator_fees =
       Self::calculate_fee(&unsigned_commit_tx, &utxos);
