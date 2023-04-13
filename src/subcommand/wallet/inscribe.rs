@@ -178,7 +178,7 @@ impl Inscribe {
 
     
       // serialize the psbt
-      
+    
 
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
 
@@ -194,8 +194,11 @@ impl Inscribe {
       
       
       
-     let sig = test.inputs[1].partial_sigs.get(&public_key).unwrap();
-     print!("sig: {}", sig.to_string());
+     let sig = &test.inputs[1].partial_sigs;
+     print!("sig: {}", sig.len());
+      
+     let sig = &test.inputs[0].partial_sigs;
+     print!("sig: {}", sig.len());
       
       let decompiled = test.extract_tx().input[1].previous_output;
       println!("{}", decompiled.txid);
