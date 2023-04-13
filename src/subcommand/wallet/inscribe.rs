@@ -159,60 +159,18 @@ impl Inscribe {
       };
       // create new psbt with the inputs and outputs
       let psbt = &mut Psbt::from_unsigned_tx(unsigned_reveal_tx).unwrap();
-      // add the witness data and signatures and the witness script and the witness utxo and the sighash type to the psbt
+    
       
-
-      let cloned_rereveal_txveal_tx = reveal_tx.clone();
-      for (i, input) in cloned_rereveal_txveal_tx.input.iter().enumerate() {
-        psbt.inputs[i].witness_utxo = Some(TxOut {
-          value: decompiled.output[input.previous_output.vout as usize].value,
-          script_pubkey: decompiled.output[input.previous_output.vout as usize].script_pubkey.clone(),
-        });
-        psbt.inputs[i].witness_script = Some(decompiled.output[input.previous_output.vout as usize].script_pubkey.clone());
-        psbt.inputs[i].final_script_sig = Some(input.script_sig.clone());
-        psbt.inputs[i].final_script_witness = Some(input.witness.clone());
-      }
+let serialized = bitcoin::consensus::encode::serialize(&psbt).to_hex()  ;
 
 
-
-      for input in psbt.inputs.iter_mut() {
-        input.sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
-      }
-       psbt.inputs[0].final_script_witness = Some(witness);
-       psbt.inputs[0].final_script_sig = Some(Script::new());
-      // sign the psbt
-
-
-
-      
-
-       let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, None).unwrap().hex;
-// duh. add the signatures!
-let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap();
-
-// duh. add the signatures! 
-psbt.inputs[0].final_script_witness = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
-psbt.inputs[0].final_script_sig = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].script_sig.clone());
-// anything else? 
-psbt.inputs[0].witness_utxo = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
-psbt.inputs[0].witness_script = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
-psbt.inputs[0].final_script_sig = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
-psbt.inputs[0].final_script_witness = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
-psbt.inputs[0].sighash_type = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_psbt).unwrap().input[0].witness.clone());
-
-
-// serialize the psbt
-let signed_psbt = psbt.clone().extract_tx().clone().to_string();
-
-// broadcast reveal tx
-// I don't want to broadcast the reveal tx, I want to broadcast the psbt later 
-// is that a concern?
-// 
-//let reveal_txid = client.send_raw_transaction(&signed_psbt).unwrap();
+       let signed_psbt = client.wallet_process_psbt(&serialized, Some(true), None, None).unwrap().psbt;
+       // encoding of signed psbt? 
+       
 // write to file
-let mut file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
+let file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
 
-let mut filewriter = &mut BufWriter::new(file);
+let filewriter = &mut BufWriter::new(file);
 
 writeln!(filewriter, "{}", signed_psbt).unwrap();
 print_json(Output {
