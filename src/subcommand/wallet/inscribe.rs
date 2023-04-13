@@ -156,7 +156,7 @@ impl Inscribe {
       
       
       // sign using sign_raw_transaction_with_wallet
-      let hexpsbt = bitcoin::consensus::serialize(&psbt) ;
+      let hexpsbt = bitcoin::consensus::serialize(&psbt) ;      
       let base64psbt = base64::encode(hexpsbt   );
 
     let signed_psbt = client.wallet_process_psbt(&base64psbt, Some(true),
@@ -221,7 +221,7 @@ Ok(())
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
-      let inscribed_utxos = inscriptions
+      let inscribed_utxos = inscriptions  .clone()
         .keys()
         .map(|satpoint| satpoint.outpoint)
         .collect::<BTreeSet<OutPoint>>();
@@ -286,7 +286,7 @@ Ok(())
 
     let unsigned_commit_tx = TransactionBuilder::build_transaction_with_value(
       satpoint,
-      inscriptions,
+      inscriptions.clone(),
       utxos.clone(),
       commit_tx_address.clone(),
       change,
@@ -300,11 +300,18 @@ Ok(())
       .enumerate()
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
-    
-    let dummy_utxo = utxos
-      .iter()
-      .find(|(outpoint, _amount)| outpoint.txid != unsigned_commit_tx.txid())
-      .expect("should find dummy utxo");
+    let inscribed_utxos = inscriptions.clone()
+    .keys()
+    .map(|satpoint| satpoint.outpoint)
+    .collect::<BTreeSet<OutPoint>>();
+
+      let dummy_utxo = utxos
+        .keys()
+        .find(|outpoint| !inscribed_utxos.contains(outpoint))
+        
+        .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))
+        .unwrap();
+
     let ( mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -312,7 +319,7 @@ Ok(())
         txid: unsigned_commit_tx.txid(),
         vout: vout.try_into().unwrap(),
       },
-      *dummy_utxo.0,
+      *dummy_utxo ,
       TxOut {
         script_pubkey:  destination.script_pubkey(),
         value: output.value,
