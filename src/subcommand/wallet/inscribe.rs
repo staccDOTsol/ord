@@ -88,7 +88,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash , key_pair , control_block) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash , key_pair , control_block,public_key) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -134,17 +134,12 @@ impl Inscribe {
      
       // create new psbt with the inputs and outputs
       let mut psbt =  Psbt::from_unsigned_tx(reveal_tx).unwrap();
-      let witness_vec = witness.clone().to_vec();
+      let witness_vec = witness.to_vec();
      // sign the psbt
       let sig = EcdsaSig { sig: 
       secp256k1::Signature::from_compact(witness_vec[0].as_ref()).unwrap(),
       hash_ty: EcdsaSighashType::SinglePlusAnyoneCanPay };
 
-      // extract the public key from the witness
-      let public_key3 = PublicKey::from_slice(&witness_vec[1]).unwrap();
-   
-      // which one is the correct one?
-      let public_key = public_key3;
       
 
       // add the signature to the psbt
@@ -202,7 +197,7 @@ Ok(())
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock)> {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock, PublicKey)> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -336,7 +331,7 @@ Ok(())
       commit_tx_address
     );
     // NonStandardSighashType(52)' is not a valid sighash type
-    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block ))
+    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), signature_hash, key_pair, control_block, public_key.to_public_key()))
   }
 
   fn backup_recovery_key(
