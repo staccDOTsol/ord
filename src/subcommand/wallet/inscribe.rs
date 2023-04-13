@@ -164,8 +164,7 @@ impl Inscribe {
 let serialized = bitcoin::consensus::encode::serialize(&psbt).to_hex()  ;
 
 
-       let signed_psbt = client.wallet_process_psbt(&serialized, Some(true), None, None).unwrap().psbt;
-       // encoding of signed psbt? 
+       let signed_psbt = client.wallet_process_psbt(&serialized, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
        
 // write to file
 let file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
@@ -298,6 +297,8 @@ Ok(())
       },
       &reveal_script,
     );
+    // sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY
+    
     let mut revelly = reveal_tx.clone();
     let mut sighash_cache = SighashCache::new( &mut revelly);
 
@@ -306,7 +307,7 @@ Ok(())
         0,
         &Prevouts::All(&[output]),
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-        SchnorrSighashType::Default,
+        SchnorrSighashType::SinglePlusAnyoneCanPay,
       )
       .expect("signature hash should compute");
 
@@ -386,10 +387,13 @@ Ok(())
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+        
       }],
       output: vec![output2, output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
+      // SINGLE AND ANYONECANPAY
+     
     };
     
 
