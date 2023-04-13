@@ -170,11 +170,11 @@ impl Inscribe {
 
       // broadcast reveal tx
 
-      let reveal_txid = client.send_raw_transaction(&signed_psbt).unwrap();
+      //let reveal_txid = client.send_raw_transaction(&signed_psbt).unwrap();
       let test: PartiallySignedTransaction = bitcoin::consensus::deserialize(&signed_psbt ).unwrap();
 
       let encoded = Base64Display::with_config(&signed_psbt, base64::STANDARD);
-      println!("reveal txid: {}", reveal_txid);
+    //  println!("reveal txid: {}", reveal_txid);
       println!("commit txid: {}", commit_txid);
 
       
@@ -190,12 +190,12 @@ impl Inscribe {
       
 
 // write to file
-println!("{}", psbt  );
+println!("{}", encoded  );
 let file = File::create("reveals/".to_owned()+&commit_txid.to_string()   + decompiled.vout.to_string().as_str() + ".psbt").unwrap();
 
 let filewriter = &mut BufWriter::new(file);
 
-writeln!(filewriter, "{}", psbt).unwrap();
+writeln!(filewriter, "{}", encoded ).unwrap();
 print_json(Output {
  commit: commit_txid,
  minter_fees,
