@@ -20,8 +20,7 @@ use {
 };
 use miniscript::ToPublicKey;
 use base64::display::Base64Display;
-use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::{psbt::PartiallySignedTransaction, sighash}, PublicKey, secp256k1::{Parity, ecdsa, schnorr}, EcdsaSig, KeyPair, Sighash};
-use serde::de::IntoDeserializer;
+use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::{psbt::PartiallySignedTransaction, sighash, amount::serde}, PublicKey, secp256k1::{Parity, ecdsa, schnorr}, EcdsaSig, KeyPair, Sighash};
 use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::BorrowMut};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions, Utxo}, RawTx};
@@ -132,8 +131,9 @@ impl Inscribe {
 
       
       let mut psbt: PartiallySignedTransaction = Psbt::from_unsigned_tx(reveal_tx).unwrap();
+
       
-      // add the witness script to the psbt
+      // add the custom witness script to the psbt
       
       let witness = Witness::from(witness);
       let witness_vec = witness.to_vec();
@@ -148,20 +148,6 @@ impl Inscribe {
 
       let redeem_script = bitcoin::Script::from(tapsighashhash.to_vec());
       psbt.inputs[1].redeem_script = Some(redeem_script);
-      
-      // add the pubkey to the psbt
-      /// NonStandardSighashType(97)', src/subcommand/wallet/inscribe.rs:152:76
-      /// 
-      /// 
-      let sig_vec = &witness_vec[0] ;
-      let sig = EcdsaSig::from_slice( sig_vec).unwrap();
-      let pubkey = bitcoin::PublicKey::from(public_key.to_public_key());
-      
-      let mut sigs = BTreeMap::new();
-
-      sigs.insert(pubkey, sig);
-      
-      psbt.inputs[1].partial_sigs =  sigs;
 
       // add the control block to the psbt
 
@@ -205,6 +191,12 @@ impl Inscribe {
      
      
      let test = bitcoin::consensus::encode::deserialize::<PartiallySignedTransaction>(&base64::decode(&signed_psbt).unwrap()).unwrap();
+      
+      
+      
+     let sig = test.inputs[1].partial_sigs.get(&public_key).unwrap();
+     print!("sig: {}", sig.to_string());
+      
       let decompiled = test.extract_tx().input[1].previous_output;
       println!("{}", decompiled.txid);
 
