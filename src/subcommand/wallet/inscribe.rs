@@ -144,12 +144,6 @@ impl Inscribe {
       let redeem_script = Script::from(witness_vec[1].to_vec());
       let redeem_script = Script::from(redeem_script.to_bytes());
 
-      let pub_key = witness_vec[2].to_vec();
-      let pub_key = PublicKey::from_slice(&pub_key).unwrap();
-      let pub_key = pub_key.to_bytes();
-      let pub_key = Script::from(pub_key.to_vec());
-      let pub_key = Script::from(pub_key.to_bytes());
-
       
       // add the redeem script
       psbt.inputs[0].redeem_script = Some(redeem_script);
