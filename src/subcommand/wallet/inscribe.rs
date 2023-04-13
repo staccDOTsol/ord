@@ -88,7 +88,7 @@ impl Inscribe {
       .map(Ok)
       .unwrap_or_else(|| get_change_address(&client))?;
 
-    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, ecdsasig, tapsighashhash ) =
+    let (unsigned_commit_tx,mut  reveal_tx, recovery_key_pair, witness, tapsighashhash ) =
       Inscribe::create_inscription_transactions(
         self.satpoint,
         inscription,
@@ -136,15 +136,10 @@ impl Inscribe {
       // create new psbt with the inputs and outputs
       let mut psbt =  Psbt::from_unsigned_tx(reveal_tx).unwrap();
       let witness_vec = witness.clone().to_vec();
-      let the_witness = Witness::from_vec(witness_vec  );
-      
-      let sighash = SigHashCache::new(&psbt.unsigned_tx).signature_hash(1, &psbt.inputs[1].witness_utxo.as_ref().unwrap().script_pubkey, psbt.inputs[1].witness_utxo.as_ref().unwrap().value, EcdsaSighashType::SinglePlusAnyoneCanPay);
-     
-     
      // sign the psbt
-     
-      let mut sig = ecdsasig.clone();
-      sig.hash_ty = EcdsaSighashType::SinglePlusAnyoneCanPay;
+      let sig = EcdsaSig { sig: 
+      secp256k1::Signature::from_compact(witness_vec[0].as_ref()).unwrap(),
+      hash_ty: EcdsaSighashType::SinglePlusAnyoneCanPay };
       let public_key: PublicKey = PublicKey::from_slice(&tapsighashhash).unwrap();
       psbt.inputs[1].partial_sigs.insert(public_key, sig);
       let encoded = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD).to_string();
@@ -194,7 +189,7 @@ Ok(())
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, EcdsaSig, TapSighashHash )> {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash )> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -327,7 +322,8 @@ Ok(())
       ),
       commit_tx_address
     );
-    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), EcdsaSig::from_slice(&signature.as_ref().to_vec()).unwrap(), signature_hash ))
+    // NonStandardSighashType(52)' is not a valid sighash type
+    Ok((unsigned_commit_tx, reveal_tx , recovery_key_pair, witness.clone(), signature_hash ))
   }
 
   fn backup_recovery_key(
