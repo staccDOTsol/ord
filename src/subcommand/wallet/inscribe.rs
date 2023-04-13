@@ -18,7 +18,7 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
-use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction};
+use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::Output as PsbtOutput, util::psbt::PartiallySignedTransaction, PublicKey};
 use std::{ops::Deref, io::BufReader, collections::HashMap};
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 use bitcoincore_rpc::{bitcoincore_rpc_json::{SignRawTransactionInput, AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions}, RawTx};
@@ -129,41 +129,50 @@ impl Inscribe {
       // broadcast commit tx
       let commit_txid = client.send_raw_transaction(&signed_raw_commit_tx.hex).unwrap();
      
-      // sign reveal tx
-      let signed_raw_reveal_tx = client
-        .sign_raw_transaction_with_wallet(&reveal_tx, None, None).unwrap()
-        ;
-      reveal_tx = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_reveal_tx.hex).unwrap();
-
-
-      let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
-      let unsigned_reveal_tx =Transaction {
-        version: reveal_tx.version,
-        lock_time: reveal_tx.lock_time,
-        input: reveal_tx.clone().input.into_iter().map(|input| {
-          let mut txin = TxIn {
-            previous_output: input.previous_output,
-            script_sig: Script::new(),
-            sequence: input.sequence, 
-            witness: Witness::new(),
-          };
-          txin
-        }).collect(),
-        output: reveal_tx.clone().output.into_iter().map(|output| {
-          let mut txout = TxOut {
-            value: output.value,
-            script_pubkey: output.script_pubkey,
-          };
-          txout
-        }).collect(),
-      };
+     
       // create new psbt with the inputs and outputs
-      let psbt = &mut Psbt::from_unsigned_tx(unsigned_reveal_tx).unwrap();
+      let psbt = &mut Psbt::from_unsigned_tx(reveal_tx).unwrap();
+      // add the witness script
+
+
+      let witness_vec: Vec<Vec<u8>> = witness.to_owned().to_vec();
+      
+      let witness_script = Script::from(witness_vec[0].to_vec());
+      let witness_script = Script::from(witness_script.to_bytes());
+
+      psbt.inputs[0].witness_script = Some(witness_script.clone());
+      let redeem_script = Script::from(witness_vec[1].to_vec());
+      let redeem_script = Script::from(redeem_script.to_bytes());
+
+      let pub_key = witness_vec[2].to_vec();
+      let pub_key = PublicKey::from_slice(&pub_key).unwrap();
+      let pub_key = pub_key.to_bytes();
+      let pub_key = Script::from(pub_key.to_vec());
+      let pub_key = Script::from(pub_key.to_bytes());
+
+      
+      // add the redeem script
+      psbt.inputs[0].redeem_script = Some(redeem_script);
+      
+      // add the sighash type
+      psbt.inputs[0].sighash_type = Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into());
+      // add the utxo
+      psbt.inputs[0].non_witness_utxo = Some(bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap());
+
     
       let encoded = serde_json::to_string(&psbt).unwrap();
 
+      let decompiled = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_raw_commit_tx.hex).unwrap();
 
-       let signed_psbt = client.wallet_process_psbt(&encoded, Some(false), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+
+       let signed_psbt = client.wallet_process_psbt(&encoded, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+
+
+      // check the sigs 
+      let check_psbt  : PartiallySignedTransaction = serde_json::from_str(&signed_psbt).unwrap();
+      let tx = check_psbt.extract_tx();
+      
+
 // write to file
 println!("{}", signed_psbt  );
 let file = File::create("reveals/".to_owned()+&decompiled.txid().to_string() + decompiled.output.len().to_string().as_str() + ".psbt").unwrap();
