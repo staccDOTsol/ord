@@ -27,7 +27,8 @@ use miniscript::ToPublicKey;
 use base64::display::Base64Display;
 use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::{Output as PsbtOutput, serialize::Serialize}, util::{psbt::PartiallySignedTransaction, sighash, amount::serde, taproot::TaprootMerkleBranch, key}, PublicKey, secp256k1::{Parity, ecdsa::{self, SerializedSignature}, schnorr, SecretKey}, EcdsaSig, KeyPair, Sighash, SchnorrSig};
 use ::serde::__private::de::Borrowed;
-use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::{BorrowMut, Borrow}, sync::Arc, usize, fs::OpenOptions};
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::{BorrowMut, Borrow}, sync::Arc, usize };
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 
 use lazy_static::__Deref;
@@ -70,25 +71,32 @@ pub(crate) struct Inscribe {
 // define a type for the output of the function
 
 impl Inscribe {
-  fn from_utxos<T>(client: bitcoincore_rpc::Client, utxos: &BTreeMap<bitcoin::OutPoint, Amount>
-    , psbt: PartiallySignedTransaction
-    ) ->  Result<HashMap<usize, (u32, Borrowed<bitcoin::TxOut>)>> {
-  
-      let mut map: HashMap<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new(); 
-        for i in 0..psbt.inputs.len() { 
-  
-          let outpoint = psbt.unsigned_tx.input[i].previous_output;
-          let mut tx  : Transaction = client.get_raw_transaction(&outpoint.txid, None).unwrap().into() ;
-          let utxo = utxos.get(&outpoint).unwrap();
-          
-          let txout = tx.output[outpoint.vout as usize];
-          map.insert(i, 
-            (utxo.to_sat() as u32, Borrowed(txout.borrow()))
-          );
-        }
-        Ok(map)
-      }
-  
+
+async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
+  let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("psbt.txt").await.unwrap();
+  file.write_all(serde_json::to_string(&psbt).unwrap().as_bytes()).await.unwrap();
+  let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("tx.txt").await.unwrap(); 
+  file.write_all(serde_json::to_string(&tx).unwrap().as_bytes()).await.unwrap();
+}
+  fn from_utxos<'a>(utxos: &'a BTreeMap<bitcoin::OutPoint, Amount>
+  ,mut map: HashMap::<usize, (u32, Borrowed<'a, bitcoin::TxOut>)>, inputs:&'a  Vec<Input>, ) ->
+  Result<(HashMap<usize, (u32, Borrowed<'a, bitcoin::TxOut>)>  )> {
+       
+      let mut utxos = utxos.clone();
+      let mut utxos = utxos.clone();
+
+      inputs.iter().enumerate().for_each(|(i, input)| {
+        let prevout =input.non_witness_utxo.as_ref().unwrap();
+        let TxOut = &input.witness_utxo.as_ref().borrow().unwrap()  ;
+        let outpoint = OutPoint {
+          txid: prevout.txid(),
+          vout: prevout.input[i].previous_output.vout,
+        };
+        let amount = utxos.get(&outpoint).unwrap();
+        map.insert(i, (amount.as_sat() as u32,  Borrowed(TxOut  )));
+      });
+      Ok(map)
+  }
   pub(crate) fn run(self, options: Options) -> Result {
     let inscription = Inscription::from_file(options.chain(), &self.file)?;
     
@@ -178,8 +186,9 @@ impl Inscribe {
       println!("  Reveal transaction: {}", serde_json::to_string(&reveal_tx).unwrap()  );
       
       let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
-
- let borrowed : &Prevouts = &Self::from_utxos(client, &utxos, psbt.clone()).unwrap()  ;
+let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
+ let borrowed = Self::from_utxos(&utxos, borrowed, &psbt.inputs.clone()).unwrap(); 
+              
                 for i in 0..psbt.inputs.len() {
 
 
@@ -187,11 +196,13 @@ impl Inscribe {
 
                   let secp256k1 = bitcoin::secp256k1::Secp256k1::new();
                   let previous_output = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
-                  let sighash_cache = SighashCache::new(&psbt.clone().extract_tx());
+                  let extracty = psbt.clone().extract_tx();
+                  let mut sighash_cache = SighashCache::new(& extracty);
                   let public_key = bitcoin::PublicKey::from_str(&publickey.to_string()).unwrap();
                   let secp = bitcoin::secp256k1::Secp256k1::new();
-                  let sighash_cache = SighashCache::new(&psbt.clone().extract_tx());
-                  let prevouts = Self::from_utxos(client, &utxos, psbt.clone()).unwrap();
+
+let mut prevouts: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
+let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap();
                   let outpoint = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone().value  as usize;
                   let utxo = utxos.iter().nth(outpoint).unwrap();
                   let outpoint = {
@@ -221,23 +232,18 @@ impl Inscribe {
                 
                 
                 let endcoded_sig = serde_json::to_string(&signature.to_hex());
-                let endcoded_sig2 = Arc::new(endcoded_sig).unwrap().as_bytes()  ;
+                let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
                // endcoded_sig = endcoded_sig2  ;
                 let mut sig = vec![0u8; endcoded_sig2.len() + 1];
                 sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
                 sig[1..].copy_from_slice(&endcoded_sig2 );
-                psbt.inputs[i].partial_sigs.insert(public_key, EcdsaSig::from_slice(endcoded_sig2 ).unwrap()  );
+                psbt.inputs[i].partial_sigs.insert(public_key, EcdsaSig::from_slice(&endcoded_sig2 ).unwrap()  );
               }
-
-              let mut tx = psbt.extract_tx();
-              let fileoptions = OpenOptions::new().write(true).create(true).truncate(false).append(true);
-              let mut file = fileoptions.open("psbt.txt").unwrap();
-              file.write_all(serde_json::to_string(&psbt).unwrap().as_bytes()).unwrap();
-              let mut file = fileoptions.open("tx.txt").unwrap();
-              file.write_all(serde_json::to_string(&tx).unwrap().as_bytes()).unwrap();
+              let tpsbt = psbt.clone();
+              let tx = psbt.extract_tx();
+              Self::write_file(tpsbt.clone(), tx.clone() );
               Ok(())
             }
-
 
 
    
