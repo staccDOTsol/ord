@@ -184,7 +184,21 @@ async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
 
       println!("  Commit transaction: {}", serde_json::to_string(&unsigned_commit_tx).unwrap()  );        
       println!("  Reveal transaction: {}", serde_json::to_string(&reveal_tx).unwrap()  );
+
+      // sign the commit transaction
       
+      let signed_commit_tx = client.sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None)?;
+      let signed_commit_tx = signed_commit_tx.hex;
+      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx)?;
+
+      // sign the reveal transaction
+      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(&reveal_tx, None, None)?;
+
+      let signed_reveal_tx = signed_reveal_tx.hex;
+
+      let reveal_tx = bitcoin::consensus::encode::deserialize::<bitcoin::Transaction>(&signed_reveal_tx).unwrap();
+
+
       let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
 let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
  let borrowed = Self::from_utxos(&utxos, borrowed, &psbt.inputs.clone()).unwrap(); 
