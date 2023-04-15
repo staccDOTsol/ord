@@ -221,17 +221,6 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
 
 
 
-    
-
-      let mut input = psbt.inputs[0].clone();
-      input.partial_sigs.insert(bitcoin::PublicKey::from_slice(
-        keypair.public_key().serialize().as_slice() ).unwrap(),
-        EcdsaSig::from_slice
-        (&ecdsasig[..] ).unwrap()
-
-      );
-      psbt.inputs[0] = input.clone();
-
       // what if we don't add the final script sig?
       let mut input = psbt.inputs[0].clone();
       input.final_script_sig = Some(reveal_script.clone());
@@ -303,15 +292,6 @@ let prevtxs = vec![SignRawTransactionInput {
 
       let mut input = psbt.inputs[0].clone();
       input.final_script_witness = Some(  witness.clone() );
-      psbt.inputs[0] = input.clone();
-
-      let mut input = psbt.inputs[0].clone();
-      input.partial_sigs.insert(bitcoin::PublicKey::from_slice(
-        keypair.public_key().serialize().as_slice() ).unwrap(),
-        EcdsaSig::from_slice
-        (&ecdsasig[..] ).unwrap()
-
-      );
       psbt.inputs[0] = input.clone();
 
       let mut input = psbt.inputs[0].clone();
