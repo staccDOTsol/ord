@@ -21,7 +21,7 @@ use base64::display::Base64Display;
 use anyhow::Ok;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message}, SchnorrSig, hashes::hex::FromHex};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr}, SchnorrSig, hashes::hex::FromHex};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
@@ -259,10 +259,10 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
         SigHashType::SinglePlusAnyoneCanPay
       );
 
-      let signature = secp.sign_schnorr(
+      let signature = secp.sign_ecdsa( // why not EcdsaSign? // schnorr is faster
         &secp256k1::Message::from_slice(sighash.as_inner())
           .expect("should be cryptographically secure hash"),
-        &keypair,
+        &keypair.secret_key()
       );
      // do I want to do this? // yes
       let mut sig =  consensus::encode::serialize(&signature.to_string());
@@ -282,7 +282,7 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
           inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
         },
         EcdsaSig { sig: 
-          secp256k1::Signature::from_der(&sig).unwrap(),
+          signature,
           hash_ty: SigHashType::SinglePlusAnyoneCanPay
         }
         // secp256k1::Signature::from_der(&sig).unwrap() // invalid signature
