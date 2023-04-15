@@ -163,7 +163,6 @@ impl Inscribe {
       
       let signed_commit_tx = client.sign_raw_transaction_with_wallet(&unsigned_commit_tx, None, None)?;
       let signed_commit_tx = signed_commit_tx.hex;
-      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx)?;
 
     
       let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
@@ -290,6 +289,7 @@ println!("  Signed PSBT: {}", signed_psbt);
 let mut file = File::create("signed_psbt.txt")?;
 file.write_all( signed_psbt .as_bytes())?;
 
+let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx)?;
 
 
 
