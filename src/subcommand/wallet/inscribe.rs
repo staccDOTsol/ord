@@ -201,7 +201,7 @@ let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
 
 let secret_key = keypair.secret_key();
 let private_key = PrivateKey::from_slice(&secret_key[..], Network::Bitcoin).unwrap();
-
+let mut tpbst = psbt.clone();
 
 let signed_psbt = client.sign_raw_transaction_with_key(
   &psbt.extract_tx(),
@@ -209,14 +209,21 @@ let signed_psbt = client.sign_raw_transaction_with_key(
   Some(&[previnput ]),  
   Some(SigHashType::SinglePlusAnyoneCanPay.into()), 
 ).unwrap().hex;
-let decoded: Psbt = bitcoin::consensus::deserialize(&signed_psbt).unwrap();
 
-println!("  Signed PSBT: {}", serde_json::to_string(&decoded).unwrap()  );
+
+
+let decoded: Transaction = bitcoin::consensus::deserialize(&signed_psbt).unwrap();
+tpbst.unsigned_tx = decoded.clone();
+let signed_psbt = tpbst.clone();
+
+
+
+println!("  Signed PSBT: {}", serde_json::to_string(&signed_psbt).unwrap()  );
 //  Signed PSBT: {"hex":"0100000002024736772a280d8339d6772e7330e8633889fe196601f8bee57f6d32ea4cbc0b0000000000fdffffffbcde412d3062500d5505a0244e1b9de8adf392dde0954f5e26a618e1b0bfc9710100000000fdffffff029a02000000000000225120746dc0d496dea7d05e9044986d9f22fa6241e3fa8e2beca440915c147d95dc3c0a1a00000000000022512014afb12b2882df9581e3d3e8fdc55da1e9313b77348ca8acc06906e1a8278b5c00000000","complete":false,"errors":[{"txid":"0bbc4cea326d7fe5bef8016619fe893863e830732e77d639830d282a77364702","vout":0,"scriptSig":"","sequence":4294967293,"error":"Witness program was passed an empty witness"},{"txid":"71c9bfb0e118a6265e4f95e0dd92f3ade89d1b4e24a005550d5062302d41debc","vout":1,"scriptSig":"","sequence":4294967293,"error":"Witness program was passed an empty witness"}]}
 
 
 let mut file = File::create("signed_psbt.txt")?;
-file.write_all(serde_json::to_string(&decoded).unwrap() .as_bytes())?;
+file.write_all(serde_json::to_string(&signed_psbt).unwrap() .as_bytes())?;
 
 
 
