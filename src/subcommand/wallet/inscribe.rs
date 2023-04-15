@@ -281,7 +281,10 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
           compressed: true,
           inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
         },
-        secp256k1::Signature::from_der(&sig).unwrap()
+        EcdsaSig { sig: 
+          secp256k1::Signature::from_der(&sig).unwrap(),
+          hash_ty: SigHashType::SinglePlusAnyoneCanPay
+        }
         // secp256k1::Signature::from_der(&sig).unwrap() // invalid signature
         // secp256k1::Signature::from_compact(&sig).unwrap() // invalid signature
         // valid signature: secp256k1::Signature::from_der(&sig).unwrap()
