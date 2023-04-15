@@ -21,7 +21,7 @@ use base64::display::Base64Display;
 use anyhow::Ok;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig, hashes::hex::FromHex};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message}, SchnorrSig, hashes::hex::FromHex};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
@@ -263,7 +263,9 @@ impl Inscribe {
 
       let sighash = signature_hash.clone();
       let secp  = Secp256k1::new();
-      let msg = secp256k1::Message::from_slice(&sighash[..]).unwrap();
+      // `Err` value: InvalidMessage', s
+      
+      let msg = Message::from_slice(&sighash).unwrap(); // is this vaid now or not? // yes
       let signature = secp.sign_ecdsa(&msg, &keypair.secret_key());
       let signature = EcdsaSig { sig : signature , hash_ty : SigHashType::SinglePlusAnyoneCanPay.into() };
       input.partial_sigs.insert(publickey, signature.into());
@@ -396,7 +398,7 @@ let prevtxs = vec![SignRawTransactionInput {
         // what if we don't add the final script sig?
         // then the psbt is not signed
         // what if we don't add the final script witness?
-        
+
       let mut file = OpenOptions::new()
       .write(true)
       .append(true)
