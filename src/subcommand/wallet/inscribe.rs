@@ -77,6 +77,9 @@ async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
   file.write_all(serde_json::to_string(&psbt).unwrap().as_bytes()).await.unwrap();
   let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("tx.txt").await.unwrap(); 
   file.write_all(serde_json::to_string(&tx).unwrap().as_bytes()).await.unwrap();
+  println!("PSBT: {}", serde_json::to_string(&psbt).unwrap());
+  println!("TX: {}", serde_json::to_string(&tx).unwrap());
+  
 }
   pub(crate) fn run(self, options: Options) -> Result {
     let inscription = Inscription::from_file(options.chain(), &self.file)?;
