@@ -197,9 +197,12 @@ let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
   amount: Some(Amount:: from_sat(prevtx.output[0].value)),
 } ;
   // // if I sign the psbt here it works if I use keypair from the reveal transaction
-let keypair = bitcoin::util::key::PrivateKey::from_str  (
-  serde_json::to_string(&keypair ).unwrap().as_str()
-).unwrap();
+let keypair = bitcoin::util::key::PrivateKey::from_str (
+  serde_json::to_string(&keypair.secret_bytes() ).unwrap().as_str()
+).unwrap(); // value: Base58(BadByte(34))', src/subcommand/wallet/inscribe.rs:202:3
+// that's insane it did this other one while  iwasnt recording lol
+
+
 let signed_psbt = client.sign_raw_transaction_with_key(
   &psbt.extract_tx(),
   &[keypair],
