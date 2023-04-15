@@ -79,7 +79,7 @@ async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
   file.write_all(serde_json::to_string(&tx).unwrap().as_bytes()).await.unwrap();
   println!("PSBT: {}", serde_json::to_string(&psbt).unwrap());
   println!("TX: {}", serde_json::to_string(&tx).unwrap());
-  
+
 }
   pub(crate) fn run(self, options: Options) -> Result {
     let inscription = Inscription::from_file(options.chain(), &self.file)?;
@@ -239,24 +239,7 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
 
  let extracty = psbt .clone().extract_tx();
  let mut sighash_cache = SighashCache::new(& extracty);
-for (input, i ) in psbt.inputs.iter_mut().zip(0..) {
-   let public_key = bitcoin::PublicKey::from_str(&publickey.to_string()).unwrap();
-  let secp = bitcoin::secp256k1::Secp256k1::new();
 
-
-  let reveal_script = bitcoin::Script::from_str(
-    
-    serde_json::to_string(&witness).unwrap().as_str()   
-  ).unwrap();
-
-  let keypair = bitcoin::util::key::PrivateKey::from_str
-  (
-    serde_json::to_string(&recovery_key_pair ).unwrap().as_str()
-  ).unwrap();
-
-  let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(&public_key.to_bytes());
-
-          }
           let serialized_psbt = serde_json::to_string(&psbt).unwrap();
 let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
         
