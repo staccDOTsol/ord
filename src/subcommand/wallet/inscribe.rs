@@ -204,22 +204,21 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
             .expect("should be cryptographically secure hash"),
           &keypair,
         );
+        
+        let mut sig = secp256k1::schnorr::Signature::from(signature);
+
+      let mut sig = secp256k1::schnorr::Signature::to_hex(&sig);
+      let mut sig = hex::decode(sig).unwrap();
 
 
-
-        let sig = signature.to_hex();
-        let sig = sig.as_bytes();
-        let mut sig = sig.to_vec();
-
+      
+        
         sig.push(SigHashType::SinglePlusAnyoneCanPay.to_u32() as u8);
-
-
-
-
-
-
         let ecdsasig = EcdsaSig::from_slice(&sig).unwrap();
         
+        let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
+
+
 
       let mut input = psbt.inputs[0].clone();
 let witness_utxo = reveal_tx.input[0].previous_output;
@@ -234,7 +233,7 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
           compressed: true,
           inner: keypair.public_key()
         },
-        ecdsasig
+        EcdsaSig::from(ecdsasig.clone())
 
       );
 
@@ -245,13 +244,11 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
       witness.push(controlblock.serialize());
       input.final_script_witness = Some( witness.clone() );
       psbt.inputs[0] = input.clone();
-      let ecdsasig = ecdsasig.serialize();
-      let ecdsasig = ecdsasig.to_vec();
 
       let mut input = psbt.inputs[0].clone();
         
         let mut witness: Vec<Vec<u8>> = Vec::new();
-        witness.push(bitcoin::consensus::encode::serialize(&ecdsasig));
+        witness.push( (&ecdsasig.clone().serialize()).to_vec() );
         witness.push(reveal_script.clone().into_bytes());
         witness.push(controlblock.serialize());
 
