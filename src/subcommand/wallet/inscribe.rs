@@ -350,7 +350,10 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
 bitcoin::PublicKey {
           compressed: true,
           inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
-        },EcdsaSig::from_str(&signature).unwrap() );
+        }, EcdsaSig { sig: 
+          signature,
+          hash_ty: SigHashType::SinglePlusAnyoneCanPay
+        } );
 
 
       psbt.inputs[0] = input.clone();
