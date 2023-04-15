@@ -180,18 +180,12 @@ let prevtx:Transaction = bitcoin::consensus::deserialize(&prevtx).unwrap();
 
 
 let previn = psbt.inputs[0].clone();
-psbt.inputs[0].non_witness_utxo = Some(prevtx);
+psbt.inputs[0].non_witness_utxo = Some(prevtx.clone());
 psbt.inputs[0].witness_utxo = Some(prevtx.output[0].clone());
 psbt.inputs[0].redeem_script = Some(prevtx.output[0].script_pubkey.clone());
 psbt.inputs[0].witness_script = Some(prevtx.output[0].script_pubkey.clone());
 psbt.inputs[0].final_script_sig = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].final_script_witness = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].partial_sigs = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].sighash_type = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].bip32_derivation = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].final_script_sig = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].final_script_witness = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].unknown = Some(prevtx.output[0].script_pubkey.clone()); 
+
 
 // let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
 // let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
@@ -200,7 +194,7 @@ let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
   vout: 0,
   redeem_script: Some(prevtx.output[0].script_pubkey.clone()),
   script_pub_key: prevtx.output[0].script_pubkey.clone(),
-  amount: Some(Amount::
+  amount: Some(Amount:: from_sat(prevtx.output[0].value)),
 } ;
   // // if I sign the psbt here it works if I use keypair from the reveal transaction
 let keypair = bitcoin::util::key::PrivateKey::from_str  (
