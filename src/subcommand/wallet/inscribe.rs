@@ -215,7 +215,7 @@ impl Inscribe {
 
       // add the signatures to the psbt
 
-      for i in 0..psbt.clone().inputs.len() {
+      for i in 0..0 {
         let (public_key, redeem_script, witness_script, sighash_type) = (
           public_keys[i].clone(),
           redeem_scripts[i].clone(),
