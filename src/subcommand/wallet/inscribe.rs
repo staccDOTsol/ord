@@ -337,10 +337,9 @@ let prevtxs = vec![SignRawTransactionInput {
       let hex = bitcoin::consensus::encode::serialize(&psbt);
 
       let prettyHex = hex::encode(&hex);
-      println!("hex: {}", prettyHex);
+      println!("hex: {}", prettyHex.len());
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&hex), base64::STANDARD) .to_string();
-      println!("psbt b64: {}", psbt);
-      println!("psbt hex: {}", prettyHex);
+      println!("psbt b64: {}", psbt.len());
 
       
       
