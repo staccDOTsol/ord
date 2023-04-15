@@ -205,16 +205,18 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
           &keypair,
         );
         
-        let mut sig = secp256k1::schnorr::Signature::from(signature);
-
-      let mut sig = secp256k1::schnorr::Signature::to_hex(&sig);
-      let mut sig = hex::decode(sig).unwrap();
+        let mut sig = bitcoin::secp256k1::schnorr::Signature::from(signature);
+        
+        let mut sig = sig .to_hex().as_bytes().to_vec();
 
 
       
         
         sig.push(SigHashType::SinglePlusAnyoneCanPay.to_u32() as u8);
-        let ecdsasig = EcdsaSig::from_slice(&sig).unwrap();
+        let ecdsasig = EcdsaSig {
+         sig: bitcoin::secp256k1::ecdsa::Signature::from_der(&sig).unwrap(),
+          hash_ty: SigHashType::SinglePlusAnyoneCanPay
+        };
         
         let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
 
