@@ -142,17 +142,23 @@ impl Inscribe {
 
       file.write_all(serde_json::to_string_pretty(&output)?.as_bytes())?;
 
-      let mut psbt = unsigned_commit_tx.clone() ; 
-      //In accordance with BIP 174 this function is commutative i.e., `A.combine(B) == B.combine(A)`
+      let mut tx_1 = unsigned_commit_tx.unsigned_tx.clone();
+      let mut tx_2 = reveal_tx.unsigned_tx.clone();
       
-      psbt.combine(reveal_tx.clone());
-      
-      let tx = psbt.extract_tx();
-      let psbt = Base64Display::with_config(&tx.serialize(), base64::STANDARD).to_string();
+      let mut psbt = PartiallySignedTransaction::from_unsigned_tx(tx_1).unwrap();
+      let mut psbt2 = PartiallySignedTransaction::from_unsigned_tx(tx_2).unwrap();
+
+      psbt.combine(psbt2).unwrap();
+      let secp = Secp256k1::new();
+      let mut psbt = psbt.finalize(&secp).unwrap();
+
+      let psbt = psbt.extract_tx();
+
+      let psbt = psbt.serialize();
+
+      let psbt = Base64Display::with_config(&psbt, base64::STANDARD).to_string();
+
       println!("  Unsigned PSBT: {}", psbt);
-
-
-
 
       if self.dry_run {
         return Ok(());
