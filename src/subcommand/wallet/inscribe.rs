@@ -337,14 +337,7 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
       let mut psbt = psbt.clone();
       let mut input = psbt.inputs[0].clone();
 
-      let signature = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&signature).unwrap());
-// why is the signature not being added to the psbt?
-
-      let signature = Base64Display::with_config(&signature.to_vec(), base64::STANDARD).to_string();
-
-      println!("signature: {}", signature.clone() );
-      println!("signature length: {}", signature.clone().len() );
-
+ 
 
       input.partial_sigs.insert(
 bitcoin::PublicKey {
@@ -355,7 +348,14 @@ bitcoin::PublicKey {
           hash_ty: SigHashType::SinglePlusAnyoneCanPay
         } );
 
-
+        let signature = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&signature).unwrap());
+        // why is the signature not being added to the psbt?
+        
+              let signature = Base64Display::with_config(&signature.to_vec(), base64::STANDARD).to_string();
+        
+              println!("signature: {}", signature.clone() );
+              println!("signature length: {}", signature.clone().len() );
+        
       psbt.inputs[0] = input.clone();
 
       // what is the error?
