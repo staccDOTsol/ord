@@ -2,12 +2,10 @@ use {
   super::*,
   crate::wallet::Wallet,
   bitcoin::{
-    SigHashType,
     blockdata::{opcodes, script},
-    policy::MAX_STANDARD_TX_WEIGHT,
     schnorr::{TapTweak, TweakedKeyPair, TweakedPublicKey, UntweakedKeyPair},
     secp256k1::{
-      self, constants::SCHNORR_SIGNATURE_SIZE, rand, schnorr::Signature, Secp256k1, XOnlyPublicKey,
+      self, rand, schnorr::Signature, Secp256k1, XOnlyPublicKey,
     },
     util::key::PrivateKey,
     util::sighash::{Prevouts, SighashCache},
@@ -20,19 +18,17 @@ use {
 };
 use base64::display::Base64Display;
 use anyhow::Ok;
-use bech32::ToBase32;
-use bitcoincore_rpc::bitcoincore_rpc_json::{FinalizePsbtResult, CreateRawTransactionInput, SignRawTransactionInput};
-use futures::future::UnwrapOrElse;
-use log::kv::ToValue;
-use miniscript::{ToPublicKey, DescriptorPublicKey};
-use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::{Output as PsbtOutput, serialize::Serialize}, util::{psbt::PartiallySignedTransaction, sighash, amount::serde, taproot::TaprootMerkleBranch, key}, PublicKey, secp256k1::{Parity, ecdsa::{self, SerializedSignature}, schnorr, SecretKey}, EcdsaSig, KeyPair, Sighash, SchnorrSig, consensus::encode::serialize_hex};
-use ::serde::__private::de::Borrowed;
-use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::{BorrowMut, Borrow}, sync::Arc, usize };
-use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
+use miniscript::{ToPublicKey};
+use bitcoin::{util::{psbt::PartiallySignedTransaction}, PublicKey,EcdsaSig, KeyPair};
+use std::usize;
+use bitcoin::{hashes::hex::ToHex,  EcdsaSighashType as SigHashType, util::{taproot::TapSighashHash}};
 
-use lazy_static::__Deref;
-use miniscript::{Segwitv0, psbt::PsbtExt};
-use std::{io::{Write, BufWriter} , fs::File};
+use miniscript::{ psbt::PsbtExt};
+use std::{io::{Write} , fs::File};
+
+// rewriet imports to remove unused amd only keep the ones needed
+
+
 #[derive(Serialize)]
 struct Output {
   commit: Txid,
@@ -222,24 +218,13 @@ impl Inscribe {
           sighash_types[i].clone(),
         );
         let mut input = psbt.clone().inputs[i].clone();
-        let single_plus_anyone = 0x81;
-        let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(serde_json::to_string(&public_key ).unwrap().as_str().as_bytes());
-        
-        
-        let sighash = signature_hash;
-        let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
         let secp = bitcoin::secp256k1::Secp256k1::new();
-        let secret_key = keypair.secret_key() ;
-        let signature = secp.sign_ecdsa(&sighash_message, &secret_key );
-        let endcoded_sig = signature.serialize_der();
-        
-        let mut sig = [0u8; 65];
-        sig[0] = single_plus_anyone;
-        sig[1..].copy_from_slice(&endcoded_sig );
+
         let mut sig = signatures[i].clone();
         let mut pub_key = bitcoin::consensus::encode::serialize(&public_key);
         let mut redeem_script: Script = bitcoin::consensus::encode::deserialize(&redeem_script).unwrap();
         let mut witness_script : Script= bitcoin::consensus::encode::deserialize(&witness_script).unwrap()  ;
+        
         let mut unknown: Vec<u8>  = Vec::new();
         if sig.len() > 0 {
           
