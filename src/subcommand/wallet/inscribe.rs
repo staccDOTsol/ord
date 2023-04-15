@@ -170,10 +170,9 @@ impl Inscribe {
      SigHashType::SinglePlusAnyoneCanPay.into() 
      )).unwrap();
      let signed_psbt = signed_psbt.hex;
-      let signed_psbt = bitcoin::consensus::encode::serialize_hex(&signed_psbt);
-      let signed_psbt = signed_psbt.to_string();
+      let signed_psbt = Base64Display::with_config(&signed_psbt, base64::STANDARD).to_string();
 
-      
+
 
 
 
@@ -184,7 +183,7 @@ println!("  Signed PSBT: {}", signed_psbt);
 
 
 let mut file = File::create("signed_psbt.txt")?;
-file.write_all( signed_psbt .as_bytes())?;
+file.write_all( signed_psbt .as_bytes() )?;
 
 let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx)?;
 
