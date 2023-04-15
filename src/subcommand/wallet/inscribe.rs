@@ -183,12 +183,7 @@ let previn = psbt.inputs[0].clone();
 psbt.inputs[0].non_witness_utxo = Some(prevtx.clone());
 psbt.inputs[0].witness_utxo = Some(prevtx.output[0].clone());
 psbt.inputs[0].redeem_script = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].witness_script = Some(prevtx.output[0].script_pubkey.clone());
-psbt.inputs[0].final_script_sig = Some(prevtx.output[0].script_pubkey.clone());
 
-
-// let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
-// let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
 let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
   txid: prevtx.txid(),
   vout: 0,
@@ -196,6 +191,8 @@ let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
   script_pub_key: prevtx.output[0].script_pubkey.clone(),
   amount: Some(Amount:: from_sat(prevtx.output[0].value)),
 } ;
+
+
 
 // secret key to private key 
 
