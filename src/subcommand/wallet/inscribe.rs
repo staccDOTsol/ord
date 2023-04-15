@@ -160,32 +160,12 @@ impl Inscribe {
 
       println!("  Unsigned PSBT: {}", psbt);
 
-      if self.dry_run {
-        return Ok(());
-      }
       let mut file = File::create("unsigned_psbt.txt")?;
       file.write_all( psbt .as_bytes() )?;
 
-
-
-     let signed_psbt = client.sign_raw_transaction_with_wallet(&tx,  None, Some(
-     SigHashType::SinglePlusAnyoneCanPay.into() 
-     )).unwrap();
-     let signed_psbt = signed_psbt.hex;
-      let signed_psbt = Base64Display::with_config(&signed_psbt, base64::STANDARD).to_string();
-
-
-
-
-
-
-println!("  Signed PSBT: {}", signed_psbt);
-// provided a redeem script for a transaction output that does not need one 
-// let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
-
-
-let mut file = File::create("signed_psbt.txt")?;
-file.write_all( signed_psbt .as_bytes() )?;
+      if self.dry_run {
+        return Ok(());
+      }
 
 
 
