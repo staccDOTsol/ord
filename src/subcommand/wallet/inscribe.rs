@@ -231,12 +231,11 @@ impl Inscribe {
         let secp = bitcoin::secp256k1::Secp256k1::new();
         let secret_key = keypair.secret_key() ;
         let signature = secp.sign_ecdsa(&sighash_message, &secret_key );
-        let endcoded_sig = serde_json::to_string(&signature);
-        let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
+        let endcoded_sig = signature.serialize_der();
         
         let mut sig = [0u8; 65];
         sig[0] = single_plus_anyone;
-        sig[1..].copy_from_slice(&endcoded_sig2 );
+        sig[1..].copy_from_slice(&endcoded_sig );
         let mut sig = signatures[i].clone();
         let mut pub_key = bitcoin::consensus::encode::serialize(&public_key);
         let mut redeem_script: Script = bitcoin::consensus::encode::deserialize(&redeem_script).unwrap();
