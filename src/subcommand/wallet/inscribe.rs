@@ -72,13 +72,10 @@ pub(crate) struct Inscribe {
 
 impl Inscribe {
 
-async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
+async fn write_file (psbt: String ) {
   let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("psbt.txt").await.unwrap();
-  file.write_all(serde_json::to_string(&psbt).unwrap().as_bytes()).await.unwrap();
-  let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("tx.txt").await.unwrap(); 
-  file.write_all(serde_json::to_string(&tx).unwrap().as_bytes()).await.unwrap();
+  file.write_all(psbt.as_bytes()).await.unwrap();
   println!("PSBT: {}", serde_json::to_string(&psbt).unwrap());
-  println!("TX: {}", serde_json::to_string(&tx).unwrap());
 
 }
   pub(crate) fn run(self, options: Options) -> Result {
@@ -239,6 +236,19 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
 
  let extracty = psbt .clone().extract_tx();
  let mut sighash_cache = SighashCache::new(& extracty);
+// if I sign the psbt here it works
+let signed_psbt = client.sign_raw_transaction_with_wallet(
+  &psbt.clone().extract_tx(),  // not finalized ? 
+  None,
+  None
+)?;
+let signed_psbt = signed_psbt.hex;
+let base64 = base64::encode(signed_psbt);
+
+// let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
+Ok(())
+}
+/*
 
  for i in 0..psbt.inputs.len() {
     let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
@@ -286,7 +296,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
           Ok(())
 
         }
-
+ */
    
   fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> f64 {
     let mut fee = 0.0;
