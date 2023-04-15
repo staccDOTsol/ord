@@ -226,8 +226,7 @@ impl Inscribe {
         if sig.len() > 0 {
           
           input.partial_sigs.insert(
-            bitcoin::PublicKey::from_str(
-            serde_json::to_string(&public_key ) .unwrap().as_str() ).unwrap(),
+            bitcoin::PublicKey::from_slice(&pub_key).unwrap(),
             EcdsaSig::from_slice(&sig).unwrap()  );
         }
         if pub_key.len() > 0 {
