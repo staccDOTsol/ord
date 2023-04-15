@@ -78,25 +78,6 @@ async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
   let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("tx.txt").await.unwrap(); 
   file.write_all(serde_json::to_string(&tx).unwrap().as_bytes()).await.unwrap();
 }
-  fn from_utxos<'a>(utxos: &'a BTreeMap<bitcoin::OutPoint, Amount>
-  ,mut map: HashMap::<usize, (u32, Borrowed<'a, bitcoin::TxOut>)>, inputs:&'a  Vec<Input>, ) ->
-  Result<(HashMap<usize, (u32, Borrowed<'a, bitcoin::TxOut>)>  )> {
-       
-      let mut utxos = utxos.clone();
-      let mut utxos = utxos.clone();
-
-      inputs.iter().enumerate().for_each(|(i, input)| {
-        let prevout =input.non_witness_utxo.as_ref().unwrap();
-        let TxOut = &input.witness_utxo.as_ref().borrow().unwrap()  ;
-        let outpoint = OutPoint {
-          txid: prevout.txid(),
-          vout: prevout.input[i].previous_output.vout,
-        };
-        let amount = utxos.get(&outpoint).unwrap();
-        map.insert(i, (amount.as_sat() as u32,  Borrowed(TxOut  )));
-      });
-      Ok(map)
-  }
   pub(crate) fn run(self, options: Options) -> Result {
     let inscription = Inscription::from_file(options.chain(), &self.file)?;
     
@@ -194,8 +175,8 @@ async fn write_file (psbt: PartiallySignedTransaction, tx: Transaction) {
     
       let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
 let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
- let borrowed = Self::from_utxos(&utxos, borrowed, &psbt.inputs.clone()).unwrap(); 
-              
+ //let borrowed = Self::from_utxos(&utxos, borrowed, &psbt.inputs.clone()).unwrap(); 
+              /*
                 for i in 0..psbt.inputs.len() {
 
 
@@ -251,7 +232,78 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
               Self::write_file(tpsbt.clone(), tx.clone() );
               Ok(())
             }
+ */
 
+ let extracty = psbt .clone().extract_tx();
+ let mut sighash_cache = SighashCache::new(& extracty);
+for (input, i ) in psbt.inputs.iter_mut().zip(0..) {
+  let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
+  let secp256k1 = bitcoin::secp256k1::Secp256k1::new();
+  let previous_output = input.witness_utxo.as_ref().unwrap().clone();
+  let public_key = bitcoin::PublicKey::from_str(&publickey.to_string()).unwrap();
+  let secp = bitcoin::secp256k1::Secp256k1::new();
+
+  let mut prevouts: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
+  let satpoint = input.witness_utxo.as_ref().unwrap().clone().value  as usize;
+  let prevouts =  utxos.iter().nth(satpoint).unwrap();
+  let outpoint = {
+    let mut outpoint = bitcoin::OutPoint::default();
+    outpoint.txid = prevouts.0.txid;
+    outpoint.vout = prevouts.0.vout;
+    outpoint  
+   };
+
+   let previous_output = input.witness_utxo.as_ref().unwrap().clone();
+  let outpoint = input.witness_utxo.as_ref().unwrap().clone().value  as usize;
+  let utxo = utxos.iter().nth(outpoint).unwrap();
+  let outpoint = {
+    let mut outpoint = bitcoin::OutPoint::default();
+    outpoint.txid = utxo.0.txid;
+    outpoint.vout = utxo.0.vout;
+    outpoint  
+   };
+
+   let previous_output = input.witness_utxo.as_ref().unwrap().clone();
+
+  let reveal_script = bitcoin::Script::from_str(
+    
+    serde_json::to_string(&witness).unwrap().as_str()   
+  ).unwrap();
+
+  let keypair = bitcoin::util::key::PrivateKey::from_str
+  (
+    serde_json::to_string(&recovery_key_pair ).unwrap().as_str()
+  ).unwrap();
+
+  let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(&public_key.to_bytes());
+
+  let sighash = sighash_cache.taproot_script_spend_signature_hash(
+    i,
+    &Prevouts::One(0, &previous_output), 
+    TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ), SchnorrSighashType::SinglePlusAnyoneCanPay
+  ).unwrap();
+let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
+  let signature = secp.sign(&sighash_message , &keypair.inner);
+
+  let endcoded_sig = serde_json::to_string(&signature).unwrap();
+
+  let endcoded_sig2 =  hex::decode(endcoded_sig ).unwrap();
+
+  let mut sig = vec![0u8; endcoded_sig2.len() + 1];
+
+  sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
+
+  sig[1..].copy_from_slice(&endcoded_sig2 );
+
+  input.partial_sigs.insert(public_key, EcdsaSig::from_slice(&endcoded_sig2 ).unwrap()  );
+          }
+
+          let tpsbt = psbt.clone();
+          let tx = psbt.extract_tx();
+          Self::write_file(tpsbt.clone(), tx.clone() );
+          Ok(())
+
+        }
 
    
   fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> f64 {
