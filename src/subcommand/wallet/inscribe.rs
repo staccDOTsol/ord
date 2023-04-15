@@ -10,7 +10,7 @@ use {
     util::key::PrivateKey,
     util::sighash::{Prevouts, SighashCache},
     util::taproot::{ControlBlock, LeafVersion, TapLeafHash, TaprootBuilder},
-    PackedLockTime, SchnorrSighashType, Witness,
+    PackedLockTime, SighashType, Witness,
   },
   bitcoincore_rpc::bitcoincore_rpc_json::{ImportDescriptors, Timestamp},
   bitcoincore_rpc::Client,
@@ -192,7 +192,7 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
               &Prevouts::One(0, 
               output),
             TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-            SchnorrSighashType::SinglePlusAnyoneCanPay
+            SighashType::SinglePlusAnyoneCanPay
           )
           .expect("signature hash should compute");
 
@@ -207,13 +207,15 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
 
         ).serialize_der().to_vec();
         
-
+        // sighash type psuh it to the end of the signature before we serialize it
       
+        signature.push(SighashType::SinglePlusAnyoneCanPay as u8);
+
+        // 
         
         let mut ecdsasig = EcdsaSig::from_slice (&signature).unwrap().sig ;
         ecdsasig.normalize_s();
         let mut ecdsasig = ecdsasig.serialize_der().to_vec();
-        ecdsasig.push(SchnorrSighashType::SinglePlusAnyoneCanPay as u8);
 
 
 
@@ -368,7 +370,7 @@ Ok(())
       i,
       &Prevouts::One(i, previous_output), //&Prevouts::One(i, &previous_output
       TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ),
-      SchnorrSighashType::SinglePlusAnyoneCanPay
+      SighashType::SinglePlusAnyoneCanPay
     ).unwrap()  ;
     let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
     let secp = bitcoin::secp256k1::Secp256k1::new();
@@ -377,7 +379,7 @@ Ok(())
     let endcoded_sig = serde_json::to_string(&signature);
     let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
     let mut sig = vec![0u8; endcoded_sig2.len() + 1];
-    sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
+    sig[0] = SighashType::SinglePlusAnyoneCanPay as u8;
     sig[1..].copy_from_slice(&endcoded_sig2 );
     psbt.inputs[i].partial_sigs.insert(
       bitcoin::PublicKey::from_str(
