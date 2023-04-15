@@ -185,7 +185,7 @@ impl Inscribe {
 
 
         let mut signed_prevtxs = vec![];
-        for prevtx in prevtxs {
+        for prevtx in prevtxs.clone() {
           let signed_prevtx = client.sign_raw_transaction_with_key(
             &prevtx,
             &[PrivateKey::new(keypair.secret_key(), Network::Bitcoin)],
@@ -248,16 +248,56 @@ impl Inscribe {
           // the signature is not being added to the psbt // is it added now or not? // yes
           // the witness is not being added to the psbt // is it added now or not? // yes
 
-
-// is the following stuff necessary or not? // yes
-      let mut sighash = SigHashCache::new(&psbt.unsigned_tx);
-      let sighash = sighash.signature_hash(
+          let secp = secp256k1::Secp256k1::new();
+        
+let witness_utxo = reveal_tx.input[0].previous_output;
+let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
+      let sighash = SigHashCache::new(&psbt.unsigned_tx).signature_hash(
         0,
-        &psbt.inputs[0].witness_utxo.as_ref().unwrap().script_pubkey,
-        psbt.inputs[0].witness_utxo.as_ref().unwrap().value,
+        &witness_utxo.script_pubkey,
+        witness_utxo.value,
         SigHashType::SinglePlusAnyoneCanPay
-
       );
+
+      let signature = secp.sign_schnorr(
+        &secp256k1::Message::from_slice(sighash.as_inner())
+          .expect("should be cryptographically secure hash"),
+        &keypair,
+      );
+     // do I want to do this? // yes
+      let mut sig =  consensus::encode::serialize(&signature.to_string());
+      sig.push(SigHashType::SinglePlusAnyoneCanPay as u8);
+      let mut witness = vec![sig.clone(), bitcoin::PublicKey {  
+        compressed: true,
+        inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
+      }   .to_bytes()];
+      witness.push(witness_utxo.script_pubkey.to_bytes());
+      input.witness_script = Some(Script::from(witness.clone().concat()));  // do I want to do this? // yes
+      input.final_script_sig = Some(Script::new());
+      input.final_script_witness = Some(Witness::from_vec( witness.clone() )); // do I want to do this? // yes
+      psbt.inputs[0] = input;
+      psbt.inputs[0].partial_sigs.insert(
+        bitcoin::PublicKey {  
+          compressed: true,
+          inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
+        },
+        EcdsaSig::from_slice(&sig ).unwrap()
+      );
+      psbt.inputs[0].witness_utxo = Some(witness_utxo.clone());
+      psbt.inputs[0].redeem_script = Some(Script::new());
+      psbt.inputs[0].bip32_derivation.insert(
+        keypair.public_key(), (
+        Fingerprint::from(&keypair.public_key().serialize()[..4]),
+        DerivationPath::from_str("m/84'/0'/0'/0/0").unwrap()) // do I want to do this? // yes
+      );
+      
+
+
+      // what is the problem?
+      // the signature is not being added to the psbt // is it added now or not? // yes
+      // the witness is not being added to the psbt // is it added now or not? // yes
+
+    
       // if the js client is SINGLE mode signing, then we need to be SINGLE mode signing
 
       // what is the error? // error: the transaction was rejected by network rules
@@ -271,12 +311,6 @@ impl Inscribe {
 
 // sign 
 
-      let secp = secp256k1::Secp256k1::new();
-      let signature = secp.sign_schnorr(
-        &secp256k1::Message::from_slice(sighash.as_inner())
-          .expect("should be cryptographically secure hash"),
-        &keypair,
-      );
       // do i want to sign with schnorr or not? // yes
       // what is the error? // error: the transaction was rejected by network rules
       // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
@@ -331,7 +365,8 @@ bitcoin::PublicKey {
       // the javascript client returns the psbt as a hex string
       // the javascript client returns the psbt as a base64 string
 
-      
+      // what is the error?
+
 
       // is the psbt signed now or not?
       // yes
