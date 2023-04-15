@@ -202,12 +202,15 @@ impl Inscribe {
             sighash_type = item.to_vec();
           }
         }
+        if witness.len() > 0 {
+        
         signatures.push(  bitcoin::consensus::encode::serialize(&sig) );
         public_keys.push(PublicKey::from_slice(&pub_key).unwrap() );
         redeem_scripts.push(redeem_script);
         witness_scripts.push(witness_script);
         unknowns.push(unknown);
-        sighash_types.push(sighash_type);
+        sighash_types.push(sighash_type);  // println!("witness: {:?}", witness);
+      }
       }
 
       // add the signatures to the psbt
