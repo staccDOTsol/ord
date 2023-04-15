@@ -281,7 +281,11 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
           compressed: true,
           inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
         },
-        EcdsaSig::from_slice(&sig ).unwrap()
+        secp256k1::Signature::from_der(&sig).unwrap()
+        // secp256k1::Signature::from_der(&sig).unwrap() // invalid signature
+        // secp256k1::Signature::from_compact(&sig).unwrap() // invalid signature
+        // valid signature: secp256k1::Signature::from_der(&sig).unwrap()
+
       );
       psbt.inputs[0].witness_utxo = Some(witness_utxo.clone());
       psbt.inputs[0].redeem_script = Some(Script::new());
