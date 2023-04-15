@@ -222,9 +222,6 @@ impl Inscribe {
 
         let mut sig = signatures[i].clone();
         let mut pub_key = bitcoin::consensus::encode::serialize(&public_key);
-        let mut redeem_script: Script = bitcoin::consensus::encode::deserialize(&redeem_script).unwrap();
-        let mut witness_script : Script= bitcoin::consensus::encode::deserialize(&witness_script).unwrap()  ;
-        
         let mut unknown: Vec<u8>  = Vec::new();
         if sig.len() > 0 {
           
@@ -240,10 +237,10 @@ impl Inscribe {
         
 
         if redeem_script.len() > 0 {
-          input.redeem_script = Some(redeem_script);
+          input.redeem_script = Some(Script::from(redeem_script));
         }
         if witness_script.len() > 0 {
-          input.witness_script = Some(witness_script);
+          input.witness_script = Some(Script::from(witness_script));
         }
         if unknown.len() > 0 { // this is always true 
           input.unknown.insert(bitcoin::psbt::raw::Key { type_value: 0, key: unknown.clone() }, unknown.clone());
