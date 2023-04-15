@@ -162,101 +162,20 @@ impl Inscribe {
 
     
       let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
-      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(&reveal_tx, None, None)?;
 
-      let signed_reveal_tx:Transaction = bitcoin::consensus::encode::deserialize(&signed_reveal_tx.hex).unwrap();
-      
-      // extract signatures from the reveal transaction
-
-      let mut signatures = Vec::new();
-      let mut public_keys = Vec::new();
-      let mut redeem_scripts = Vec::new();
-      let mut witness_scripts = Vec::new();
-      let mut unknowns = Vec::new();
-      let mut sighash_types = Vec::new();
-      
-      for i in 0..signed_reveal_tx.input.len() {
-        let input = &signed_reveal_tx.input[i]; 
-        let witness = &input.witness.to_vec();
-        let mut sig = Vec::new();
-        let mut pub_key = Vec::new();
-        let mut redeem_script = Vec::new();
-        let mut witness_script = Vec::new();
-        let mut unknown = Vec::new();
-        let mut sighash_type = Vec::new();
-        for j in 0..witness.len() {
-          let item = &witness[j];
-          if j == 0 {
-            sig = item.to_vec(); // signature of type bitcoin::util::bip143::SighashComponents
-          } else if j == 1 {
-            // typeof item is bitcoin::PublicKey
-            // typeof item.to_vec() is Vec<u8>
-            pub_key = item.to_vec();
-          } else if j == 2 {
-            redeem_script = item.to_vec();
-          } else if j == 3 {
-            witness_script = item.to_vec();
-          } else if j == 4 {
-            unknown = item.to_vec();
-          } else if j == 5 {
-            sighash_type = item.to_vec();
-          }
-        }
-        if witness.len() > 0 {
-        
-        signatures.push(  bitcoin::consensus::encode::serialize(&sig) );
-        public_keys.push(PublicKey::from_slice(&pub_key).unwrap() );
-        redeem_scripts.push(redeem_script);
-        witness_scripts.push(witness_script);
-        unknowns.push(unknown);
-        sighash_types.push(sighash_type);  // println!("witness: {:?}", witness);
-      }
-      }
-
-      // add the signatures to the psbt
-
-      for i in 0..0 {
-        let (public_key, redeem_script, witness_script, sighash_type) = (
-          public_keys[i].clone(),
-          redeem_scripts[i].clone(),
-          witness_scripts[i].clone(),
-          sighash_types[i].clone(),
-        );
-        let mut input = psbt.clone().inputs[i].clone();
-        let secp = bitcoin::secp256k1::Secp256k1::new();
-
-        let mut sig = signatures[i].clone();
-        let mut unknown: Vec<u8>  = Vec::new();
-        if sig.len() > 0 {
-          
-          input.partial_sigs.insert(
-            public_key  ,
-            EcdsaSig::from_slice(&sig).unwrap()  );
-        }
-        if redeem_script.len() > 0 {
-          input.redeem_script = Some(Script::from(redeem_script));
-        }
-        if witness_script.len() > 0 {
-          input.witness_script = Some(Script::from(witness_script));
-        }
-        if unknown.len() > 0 { // this is always true 
-          input.unknown.insert(bitcoin::psbt::raw::Key { type_value: 0, key: unknown.clone() }, unknown.clone());
-        }
-
-        psbt.inputs[i] = input;
-        psbt.clone().finalize_inp(&secp, i).unwrap();
-
-        
-      } 
       // anythign else to do here ?
       // psbt.finalize_all() ?
 
+     let signed_psbt = client.sign_raw_transaction_with_wallet(&psbt.clone().extract_tx(), None, Some(
+     SigHashType::SinglePlusAnyoneCanPay.into() 
+     )).unwrap();
+     let signed_psbt = signed_psbt.hex;
+      let signed_psbt = bitcoin::consensus::encode::serialize_hex(&signed_psbt);
+      let signed_psbt = signed_psbt.to_string();
 
-      // sign the psbt
-      // but it's already signed ? 
-      let signed_psbt = client.wallet_process_psbt(&Base64Display::with_config(
-        &bitcoin::consensus::encode::serialize(&psbt)
-        , base64::STANDARD).to_string(), None, Some(SigHashType::SinglePlusAnyoneCanPay.into()),None ).unwrap().psbt;  
+      
+
+
 
 
 println!("  Signed PSBT: {}", signed_psbt);
