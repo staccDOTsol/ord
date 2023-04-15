@@ -27,7 +27,6 @@ use log::kv::ToValue;
 use miniscript::ToPublicKey;
 use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::{Output as PsbtOutput, serialize::Serialize}, util::{psbt::PartiallySignedTransaction, sighash, amount::serde, taproot::TaprootMerkleBranch, key}, PublicKey, secp256k1::{Parity, ecdsa::{self, SerializedSignature}, schnorr, SecretKey}, EcdsaSig, KeyPair, Sighash, SchnorrSig};
 use ::serde::__private::de::Borrowed;
-use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::{BorrowMut, Borrow}, sync::Arc, usize };
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
 
@@ -72,12 +71,6 @@ pub(crate) struct Inscribe {
 
 impl Inscribe {
 
-async fn write_file (psbt: String ) {
-  let mut file = OpenOptions::new().write(true).create(true).truncate(false).append(true).open("psbt.txt").await.unwrap();
-  file.write_all(psbt.as_bytes()).await.unwrap();
-  println!("PSBT: {}", serde_json::to_string(&psbt).unwrap());
-
-}
   pub(crate) fn run(self, options: Options) -> Result {
     let inscription = Inscription::from_file(options.chain(), &self.file)?;
     
@@ -175,67 +168,7 @@ async fn write_file (psbt: String ) {
     
       let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
 let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
- //let borrowed = Self::from_utxos(&utxos, borrowed, &psbt.inputs.clone()).unwrap(); 
-              /*
-                for i in 0..psbt.inputs.len() {
 
-
-    let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
-
-                  let secp256k1 = bitcoin::secp256k1::Secp256k1::new();
-                  let previous_output = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
-                  let extracty = psbt.clone().extract_tx();
-                  let mut sighash_cache = SighashCache::new(& extracty);
-                  let public_key = bitcoin::PublicKey::from_str(&publickey.to_string()).unwrap();
-                  let secp = bitcoin::secp256k1::Secp256k1::new();
-
-let mut prevouts: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
-let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap();
-                  let outpoint = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone().value  as usize;
-                  let utxo = utxos.iter().nth(outpoint).unwrap();
-                  let outpoint = {
-                    let mut outpoint = bitcoin::OutPoint::default();
-                    outpoint.txid = utxo.0.txid;
-                    outpoint.vout = utxo.0.vout;
-                    outpoint  
-                   };
-
-                   let previous_output = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
-                  let reveal_script = bitcoin::Script::from_str(
-                    
-                    serde_json::to_string(&witness).unwrap().as_str()
-                  ).unwrap();
-
-                  let keypair = bitcoin::util::key::PrivateKey::from_str
-                  (
-                 serde_json::to_string(&recovery_key_pair ).unwrap().as_str()
-                ).unwrap();
-                  let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(&public_key.to_bytes());
-                  
-                let sighash = sighash_cache.taproot_script_spend_signature_hash(
-                  i,
-                   &Prevouts::One(i, &previous_output), 
-                    TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ), SchnorrSighashType::SinglePlusAnyoneCanPay
-                );
-                
-                
-                let endcoded_sig = serde_json::to_string(&signature.to_hex());
-                let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
-               // endcoded_sig = endcoded_sig2  ;
-                let mut sig = vec![0u8; endcoded_sig2.len() + 1];
-                sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
-                sig[1..].copy_from_slice(&endcoded_sig2 );
-                psbt.inputs[i].partial_sigs.insert(public_key, EcdsaSig::from_slice(&endcoded_sig2 ).unwrap()  );
-              }
-              let tpsbt = psbt.clone();
-              let tx = psbt.extract_tx();
-              Self::write_file(tpsbt.clone(), tx.clone() );
-              Ok(())
-            }
- */
-
- let extracty = psbt .clone().extract_tx();
- let mut sighash_cache = SighashCache::new(& extracty);
 // if I sign the psbt here it works
 let signed_psbt = client.sign_raw_transaction_with_wallet(
   &psbt.clone().extract_tx(),  // not finalized ? 
@@ -244,7 +177,9 @@ let signed_psbt = client.sign_raw_transaction_with_wallet(
 )?;
 let signed_psbt = signed_psbt.hex;
 let base64 = base64::encode(signed_psbt);
-Self::write_file( base64.clone() );
+println!("PSBT: {}", base64 );
+let mut file =   File::create("psbt.txt") .unwrap();
+file.write_all(base64 .as_bytes()).unwrap();
 
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 Ok(())
