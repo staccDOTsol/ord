@@ -25,7 +25,7 @@ use bitcoincore_rpc::bitcoincore_rpc_json::{FinalizePsbtResult, CreateRawTransac
 use futures::future::UnwrapOrElse;
 use log::kv::ToValue;
 use miniscript::{ToPublicKey, DescriptorPublicKey};
-use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::{Output as PsbtOutput, serialize::Serialize}, util::{psbt::PartiallySignedTransaction, sighash, amount::serde, taproot::TaprootMerkleBranch, key}, PublicKey, secp256k1::{Parity, ecdsa::{self, SerializedSignature}, schnorr, SecretKey}, EcdsaSig, KeyPair, Sighash, SchnorrSig};
+use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::{Output as PsbtOutput, serialize::Serialize}, util::{psbt::PartiallySignedTransaction, sighash, amount::serde, taproot::TaprootMerkleBranch, key}, PublicKey, secp256k1::{Parity, ecdsa::{self, SerializedSignature}, schnorr, SecretKey}, EcdsaSig, KeyPair, Sighash, SchnorrSig, consensus::encode::serialize_hex};
 use ::serde::__private::de::Borrowed;
 use std::{ops::{Deref, DerefMut}, io::{BufReader, Read}, collections::HashMap, slice, borrow::{BorrowMut, Borrow}, sync::Arc, usize };
 use bitcoin::{consensus::serialize, hashes::hex::ToHex, psbt::{PsbtSighashType, Psbt}, EcdsaSighashType, util::{taproot::TapSighashHash, bip143::SigHashCache}};
@@ -166,88 +166,103 @@ impl Inscribe {
       let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx)?;
 
     
-      let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
-let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
+      let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
+      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(&reveal_tx, None, None)?;
 
-// if I sign the psbt here it works
-//. client say invaid magic number 0x00000000 
-// prevtx is the transaction that is being spent
-let prevtxs = signed_commit_tx.clone();
-let prevtx:Transaction = bitcoin::consensus::deserialize(&prevtxs).unwrap();
-let prevtx  = client.get_transaction(&prevtx.txid(), Some(true)).unwrap().hex ; 
-let prevtx:Transaction = bitcoin::consensus::deserialize(&prevtx).unwrap();
+      let signed_reveal_tx:Transaction = bitcoin::consensus::encode::deserialize(&signed_reveal_tx.hex).unwrap();
+      
+      // extract signatures from the reveal transaction
+
+      let mut signatures = Vec::new();
+      let mut public_keys = Vec::new();
+      let mut redeem_scripts = Vec::new();
+      let mut witness_scripts = Vec::new();
+      let mut unknowns = Vec::new();
+      let mut sighash_types = Vec::new();
+      
+      for i in 0..signed_reveal_tx.input.len() {
+        let input = &signed_reveal_tx.input[i];
+        let witness = &input.witness.to_vec();
+        let mut sig = Vec::new();
+        let mut pub_key = Vec::new();
+        let mut redeem_script = Vec::new();
+        let mut witness_script = Vec::new();
+        let mut unknown = Vec::new();
+        let mut sighash_type = Vec::new();
+        for j in 0..witness.len() {
+          let item = &witness[j];
+          if j == 0 {
+            sig = item.to_vec();
+          } else if j == 1 {
+            pub_key = item.to_vec();
+          } else if j == 2 {
+            redeem_script = item.to_vec();
+          } else if j == 3 {
+            witness_script = item.to_vec();
+          } else if j == 4 {
+            unknown = item.to_vec();
+          } else if j == 5 {
+            sighash_type = item.to_vec();
+          }
+        }
+        signatures.push(  bitcoin::consensus::encode::serialize(&sig) );
+        public_keys.push(pub_key);
+        redeem_scripts.push(redeem_script);
+        witness_scripts.push(witness_script);
+        unknowns.push(unknown);
+        sighash_types.push(sighash_type);
+      }
+
+      // add the signatures to the psbt
+
+      for i in 0..psbt.inputs.len() {
+        let (public_key, redeem_script, witness_script, sighash_type) = (
+          public_keys[i].clone(),
+          redeem_scripts[i].clone(),
+          witness_scripts[i].clone(),
+          sighash_types[i].clone(),
+        );
+        let mut input = psbt.inputs[i].clone();
+        let edcsa_sig = EcdsaSig::from_str( &hex::encode(&signatures[i][..]) ).unwrap();
+        let sig = Signature::from_str(&edcsa_sig.to_string()).unwrap();
+        let mut sig = sig.to_hex();
+        sig.push( sighash_type[0] as char );
+        let mut pub_key = bitcoin::consensus::encode::serialize(&public_key);
+        let mut redeem_script: Script = bitcoin::consensus::encode::deserialize(&redeem_script).unwrap();
+        let mut witness_script : Script= bitcoin::consensus::encode::deserialize(&witness_script).unwrap()  ;
+        let mut unknown: Vec<u8>  = bitcoin::consensus::encode::deserialize(&unknowns[i]).unwrap()        ;
+        input.partial_sigs.insert(PublicKey::from_slice(&pub_key).unwrap(), edcsa_sig);
+
+          
+        if redeem_script.len() > 0 {
+          input.redeem_script = Some(redeem_script);
+        }
+        if witness_script.len() > 0 {
+          input.witness_script = Some(witness_script);
+        }
+        if unknown.len() > 0 { // this is always true 
+          input.unknown.insert(bitcoin::psbt::raw::Key { type_value: 0, key: unknown.clone() }, unknown.clone());
+        }
+        psbt.inputs[i] = input;
+        
+      } 
 
 
 
-let previn = psbt.inputs[0].clone();
-psbt.inputs[0].non_witness_utxo = Some(prevtx.clone());
-psbt.inputs[0].witness_utxo = Some(prevtx.output[0].clone());
-psbt.inputs[0].redeem_script = Some(prevtx.output[0].script_pubkey.clone());
-
-let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
-  txid: prevtx.txid(),
-  vout: 0,
-  redeem_script: Some(prevtx.output[0].script_pubkey.clone()), // 
-  script_pub_key: prevtx.output[0].script_pubkey.clone(), // 
-  amount: Some(Amount:: from_sat(prevtx.output[0].value)),
-} ;
+      // sign the psbt
+      // but it's already signed ? 
+      let signed_psbt = client.wallet_process_psbt(&Base64Display::with_config(
+        &bitcoin::consensus::encode::serialize(&psbt)
+        , base64::STANDARD).to_string(), None, Some(SigHashType::SinglePlusAnyoneCanPay.into()),None ).unwrap().psbt;  
 
 
-
-// secret key to private key 
-
-let secret_key = keypair.secret_key();
-let private_key = PrivateKey::from_slice(&secret_key[..], Network::Bitcoin).unwrap();
-let mut tpbst = psbt.clone();
-
-println !("  PSBT: {}", Base64Display::with_config(&bitcoin::consensus::serialize(&psbt), base64::STANDARD));
-let i = 0;
-let mut tx = psbt.clone().extract_tx();
-let mut sighash_cache = SighashCache::new(  & mut tx); // psbt.clone().extract_tx() );
-
-// insert sigs 
-let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
-    
-let previous_output = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
-let reveal_script = psbt.inputs[i].redeem_script.as_ref().unwrap().clone();
-let keypair = bitcoin::util::key::PrivateKey::from_str  (
-  serde_json::to_string(&private_key ).unwrap().as_str()
-).unwrap();
-let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(serde_json::to_string(&public_key ).unwrap().as_str().as_bytes());
-let sighash = sighash_cache.taproot_script_spend_signature_hash(
-  i,
-  &Prevouts::One(i, previous_output), //&Prevouts::One(i, &previous_output
-  TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ),
-  SchnorrSighashType::SinglePlusAnyoneCanPay
-).unwrap()  ;
-let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
-let secp = bitcoin::secp256k1::Secp256k1::new();
-let secret_key = secp256k1::SecretKey::from_slice(&keypair.to_bytes()).unwrap();
-let signature = secp.sign_ecdsa(&sighash_message, &secret_key );
-let endcoded_sig = serde_json::to_string(&signature);
-let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
-let mut sig = vec![0u8; endcoded_sig2.len() + 1];
-sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
-sig[1..].copy_from_slice(&endcoded_sig2 );
-psbt.inputs[i].partial_sigs.insert(
-  bitcoin::PublicKey::from_str(
-  serde_json::to_string(&public_key ) .unwrap().as_str() ).unwrap(),
-  EcdsaSig::from_slice(&endcoded_sig2 ).unwrap()  );
-let mut tx = psbt.clone().extract_tx();
-// sign the psbt
-let signed_psbt = client.sign_raw_transaction_with_wallet(&tx, None, None)?;
-let signed_psbt = signed_psbt.hex;
-
-
-
-
-println!("  Signed PSBT: {}", Base64Display::with_config(&signed_psbt, base64::STANDARD));
+println!("  Signed PSBT: {}", signed_psbt);
 // provided a redeem script for a transaction output that does not need one 
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 
 
 let mut file = File::create("signed_psbt.txt")?;
-file.write_all( Base64Display::with_config(&signed_psbt, base64::STANDARD).to_string().as_bytes())?;
+file.write_all( signed_psbt .as_bytes())?;
 
 
 
