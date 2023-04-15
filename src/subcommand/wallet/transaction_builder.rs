@@ -32,6 +32,8 @@
 //! method that the built transaction is correct with respect to the feature,
 //! and a test that the assertion fires as expected.
 
+use bitcoin::psbt::PartiallySignedTransaction;
+
 use {
   super::*,
   bitcoin::{
@@ -156,16 +158,17 @@ impl TransactionBuilder {
       });
     }
 
-    Self::new(
-      outgoing,
-      inscriptions,
-      amounts,
-      recipient,
-      change,
-      fee_rate,
-      Target::Value(output_value),
-    )?
-    .build_transaction()
+   Self::new(
+         outgoing,
+         inscriptions,
+         amounts,
+         recipient,
+         change,
+         fee_rate,
+         Target::Value(output_value),
+       )?
+       .build_transaction() 
+
   }
 
   fn build_transaction(self) -> Result<Transaction> {
