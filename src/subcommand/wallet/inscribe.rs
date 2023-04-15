@@ -170,16 +170,24 @@ impl Inscribe {
 let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
 
 // if I sign the psbt here it works
+//. client say invaid magic number 0x00000000 
 let signed_psbt = client.sign_raw_transaction_with_wallet(
   &psbt.clone().extract_tx(),  // not finalized ? 
   None,
   None
 )?;
 let signed_psbt = signed_psbt.hex;
-let base64 = base64::encode(signed_psbt);
-println!("PSBT: {}", base64 );
-let mut file =   File::create("psbt.txt") .unwrap();
-file.write_all(base64 .as_bytes()).unwrap();
+
+let hex_string = serde_json::to_string(&signed_psbt).unwrap();
+
+println!("  Signed PSBT: {}", hex_string  ) ;
+
+let mut file = File::create("signed_psbt.txt")?;
+file.write_all(hex_string.as_bytes())?;
+
+
+
+
 
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 Ok(())
