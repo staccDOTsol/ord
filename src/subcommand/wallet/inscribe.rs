@@ -18,9 +18,10 @@ use {
 };
 use base64::display::Base64Display;
 use anyhow::Ok;
+use bitcoincore_rpc::bitcoincore_rpc_json::CreateRawTransactionInput;
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::Serialize}};
-use std::usize;
+use bitcoin::{util::{psbt::PartiallySignedTransaction}, PublicKey,EcdsaSig, KeyPair, psbt::Psbt};
+use std::{usize, collections::HashMap, io::Read};
 use bitcoin::{hashes::hex::ToHex,  EcdsaSighashType as SigHashType, util::{taproot::TapSighashHash}};
 
 use miniscript::{ psbt::PsbtExt};
@@ -113,17 +114,17 @@ impl Inscribe {
           Inscribe::backup_recovery_key(&client, recovery_key_pair, options.chain().network())?;
         }
       utxos.insert(
-        reveal_tx.unsigned_tx.input[0].previous_output,
+        reveal_tx.input[0].previous_output,
         Amount::from_sat(
-          unsigned_commit_tx.unsigned_tx.output[reveal_tx.unsigned_tx.input[0].previous_output.vout as usize].value,
+          unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
         ),
       );
 
     let creator_fees =
-      Self::calculate_fee(&unsigned_commit_tx.unsigned_tx, &utxos);
+      Self::calculate_fee(&unsigned_commit_tx, &utxos);
       
-      let minter_fees = Self::calculate_fee(&reveal_tx.unsigned_tx, &utxos);
-      let asking_price = reveal_tx.unsigned_tx.output[0].value as f64;
+      let minter_fees = Self::calculate_fee(&reveal_tx, &utxos);
+      let asking_price = reveal_tx.output[0].value as f64;
       let total_fees = creator_fees + minter_fees;
       let total_price = asking_price + total_fees;
       let total_price = total_price / 100_000_000.0;
@@ -133,44 +134,70 @@ impl Inscribe {
       let diff = diff / 100_000_000.0;
 
       let output = Output {
-        commit: unsigned_commit_tx.unsigned_tx.txid(),
+        commit: unsigned_commit_tx.txid(),
         minter_fees,
-        creator_fees,
+        creator_fees
       };
 
-      let mut file = File::create("output.json")?;
-
-      file.write_all(serde_json::to_string_pretty(&output)?.as_bytes())?;
-
-      let mut tx_1 = unsigned_commit_tx.unsigned_tx.clone();
-      let mut tx_2 = reveal_tx.unsigned_tx.clone();
-      
-      let mut psbt = PartiallySignedTransaction::from_unsigned_tx(tx_1).unwrap();
-      let mut psbt2 = PartiallySignedTransaction::from_unsigned_tx(tx_2).unwrap();
-
-      psbt.combine(psbt2).unwrap();
-      let secp = Secp256k1::new();
-      let mut psbt = psbt.finalize(&secp).unwrap();
-
-      let psbt = psbt.extract_tx();
-
-      let psbt = psbt.serialize();
-
-      let psbt = Base64Display::with_config(&psbt, base64::STANDARD).to_string();
-
-      println!("  Unsigned PSBT: {}", psbt);
-
-      let mut file = File::create("unsigned_psbt.txt")?;
-      file.write_all( psbt .as_bytes() )?;
+      let output = serde_json::to_string_pretty(&output).unwrap();
+      println!("{}", output);
 
       if self.dry_run {
         return Ok(());
       }
+      
+      let signed_commit_tx = client.sign_raw_transaction_with_wallet(
+        
+        &unsigned_commit_tx,
+        None,
+        None
 
+      )?;
 
+      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
+      let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
+      println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
+      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
+        
+        &reveal_tx,
+        None,
+        Some(SigHashType::SinglePlusAnyoneCanPay.into()),
 
+      )?;
+      let mut psbt = Psbt::from_unsigned_tx(reveal_tx.clone()).unwrap();
+      // step 2. add the witness script to the psbt
+        psbt.inputs[0].witness_script = Some(  Script::from(consensus::encode::serialize(&witness  )) );
+        // step 3. add the redeem script to the psbt
+        let secp = bitcoin::secp256k1::Secp256k1::new();
+        let secret_key = keypair.secret_key() ;
+        let endcoded_sig = serde_json::to_string(&signature);
+        let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
+        let mut sig = vec![0u8; endcoded_sig2.len() + 1];
+        sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
+        sig[1..].copy_from_slice(&endcoded_sig2 );
+       
+      psbt.inputs[0].redeem_script = Some(  Script::from(consensus::encode::serialize(&witness  )) );
+      // step 4. add the public key to the psbt
+      psbt.inputs[0].partial_sigs.insert(publickey.clone(), 
+      EcdsaSig::from_slice(&endcoded_sig2 ).unwrap()  );
+      // step 5. add the sighash type to the psbt
+      psbt.inputs[0].sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
+      
+      // step 6. finalize the psbt
+      psbt.clone().finalize(&secp).unwrap();
+      // step 7. extract the final transaction
+      // step 8. save the base64 encoded psbt to a file
+      let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD) .to_string();
+      let mut file = File::create("psbt.txt")?;
+      file.write_all( psbt .as_bytes() )?;
+      // step 9. broadcast the transaction
 
-
+      // why insist on a psbt?
+      // we are creating a candy machine 
+      // we need to be able to have people mint these inscriptionss at a later point in time
+      
+      
+      
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 Ok(())
 }
@@ -254,7 +281,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<(Psbt, Psbt, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock, Signature,  PublicKey)> {
+  ) -> Result<(Transaction, Transaction, TweakedKeyPair, Witness, TapSighashHash, KeyPair, ControlBlock, Signature,  PublicKey)> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -330,16 +357,13 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       commit_fee_rate,
       TransactionBuilder::TARGET_POSTAGE,
     )?;
-    
-    let binding = unsigned_commit_tx.clone();
-    let (vout, output) = binding
+
+    let (vout, output) = unsigned_commit_tx
       .output
       .iter()
       .enumerate()
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
-    let unsigned_commit_tx = PartiallySignedTransaction::from_unsigned_tx(unsigned_commit_tx)
-      .expect("should create psbt from unsigned tx");
     let inscribed_utxos = inscriptions.clone()
     .keys()
     .map(|satpoint| satpoint.outpoint)
@@ -356,7 +380,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       &control_block,
       reveal_fee_rate,
       OutPoint {
-        txid: unsigned_commit_tx.unsigned_tx.txid(),
+        txid: unsigned_commit_tx.txid(),
         vout: vout.try_into().unwrap(),
       },
       *dummy_utxo ,
@@ -370,7 +394,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       &reveal_script,reveal_fee
     );
     println!("reveal tx fee: {}", fee);
-    let mut sighash_cache = SighashCache::new(  & mut reveal_tx.unsigned_tx);
+    let mut sighash_cache = SighashCache::new(  & mut reveal_tx);
    
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
@@ -455,7 +479,7 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
     output: TxOut,
     script: &Script,
     a_fee: Amount,
-  ) -> (PartiallySignedTransaction, Vec<Vec<u8>> , Amount) {
+  ) -> (Transaction, Vec<Vec<u8>> , Amount) {
     
     
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
@@ -471,26 +495,34 @@ witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-      }, TxIn {
-        previous_output: input2,
-        script_sig: Script::new(),
-        witness: Witness::new(),
-        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        
-      }],
-      output: vec![output2, output],
+      }
+      ],
+      output: vec![ output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // SINGLE AND ANYONECANPAY
      
     };
+    // let reveal_tx = Transaction {
+    //   input: vec![ TxIn {
+    //     previous_output: input,
+    //     script_sig: script::Builder::new().into_script(),
+    //     witness: Witness::new(),
+    //     sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+    //   }],
+    //   output: vec![output],
+    //   lock_time: PackedLockTime::ZERO,
+    //   version: 1,
+    //   // SINGLE AND ANYONECANPAY
+      
+    // };
+
     //println!("reveal tx: {}", reveal_tx);
     //println!("reveal tx: {}", reveal_tx);
 
     // make reveal tx sighash type SINGLE | ANYONECANPAY
     //let sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY; 
 
-    let reveal_tx = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
 
 
 
