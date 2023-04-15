@@ -21,7 +21,7 @@ use base64::display::Base64Display;
 use anyhow::Ok;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message}, SchnorrSig, hashes::hex::FromHex};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message}, SchnorrSig, hashes::hex::FromHex};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
@@ -250,33 +250,88 @@ impl Inscribe {
 
 
 // is the following stuff necessary or not? // yes
-      let mut signature_hash = reveal_tx.signature_hash(
+      let mut sighash = SigHashCache::new(&psbt.unsigned_tx);
+      let sighash = sighash.signature_hash(
         0,
-        &unsigned_commit_tx.output[0].script_pubkey,
-        SigHashType::SinglePlusAnyoneCanPay as u32,
-      ).to_vec();
-      signature_hash.reverse();
-      signature_hash.push(SigHashType::SinglePlusAnyoneCanPay as u8);
+        &psbt.inputs[0].witness_utxo.as_ref().unwrap().script_pubkey,
+        psbt.inputs[0].witness_utxo.as_ref().unwrap().value,
+        SigHashType::SinglePlusAnyoneCanPay
+
+      );
+      // if the js client is SINGLE mode signing, then we need to be SINGLE mode signing
+
+      // what is the error? // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+      // what is the problem? // the signature is not being added to the psbt // is it added now or not? // yes
+      // the witness is not being added to the psbt // is it added now or not? // yes
+      // the psbt is not being finalized
+      // the psbt is not being broadcasted
 
 
+// sign 
 
+      let secp = secp256k1::Secp256k1::new();
+      let signature = secp.sign_schnorr(
+        &secp256k1::Message::from_slice(sighash.as_inner())
+          .expect("should be cryptographically secure hash"),
+        &keypair,
+      );
+      // do i want to sign with schnorr or not? // yes
+      // what is the error? // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
 
-      let sighash = signature_hash.clone();
-      let secp  = Secp256k1::new();
-      // `Err` value: InvalidMessage', s
+      // what is the problem? // the signature is not being added to the psbt // is it added now or not? // yes // the witness is not being added to the psbt // is it added now or not? // yes
+      // 
+      // what is the solution? // add the witness // add the signature //
       
-      let msg = Message::from_slice(&sighash).unwrap(); // is this vaid now or not? // yes
-      let signature = secp.sign_ecdsa(&msg, &keypair.secret_key());
-      let signature = EcdsaSig { sig : signature , hash_ty : SigHashType::SinglePlusAnyoneCanPay.into() };
-      input.partial_sigs.insert(publickey, signature.into());
-      psbt.inputs[0] = input;
+      // we do not: finalize the psbt // broadcast the psbt
+      // the javascript client does
+      // what is the error? // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+      // in SINGLE mode, the signature is not needed for other inputs // so we need to remove the signature from the psbt
+      // are
+        
+      let mut psbt = psbt.clone();
       let mut input = psbt.inputs[0].clone();
-      // what if we don't add the partial sigs?
-      // then the psbt is not signed
+
+      let signature = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&signature).unwrap());
+// why is the signature not being added to the psbt?
+
       let signature = Base64Display::with_config(&signature.to_vec(), base64::STANDARD).to_string();
 
       println!("signature: {}", signature.clone() );
       println!("signature length: {}", signature.clone().len() );
+
+
+      input.partial_sigs.insert(
+bitcoin::PublicKey {
+          compressed: true,
+          inner: secp256k1::PublicKey::from_secret_key(&secp, &keypair.secret_key()),
+        },EcdsaSig::from_str(&signature).unwrap() );
+
+
+      psbt.inputs[0] = input.clone();
+
+      // what is the error?
+      // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+      // what is the problem?
+      // the signature is not being added to the psbt // is it added now or not? // yes
+      // the witness is not being added to the psbt // is it added now or not? // yes
+      
+      // now I send the psbt to the javascript client
+      // the javascript client finalizes the psbt
+      // the javascript client broadcasts the psbt
+      // the javascript client returns the txid
+      // the javascript client returns the raw transaction
+      // the javascript client returns the psbt
+      // the javascript client returns the psbt as a hex string
+      // the javascript client returns the psbt as a base64 string
+
+      
 
       // is the psbt signed now or not?
       // yes
