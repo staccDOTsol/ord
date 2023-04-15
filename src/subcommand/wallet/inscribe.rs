@@ -198,17 +198,16 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
 
 
         let secp256k1 = secp256k1::Secp256k1::new();
-        let signature =  secp256k1.sign_ecdsa(   
-          
+        let dersig =  secp256k1.sign_ecdsa(   
           &Message::from_slice(&signature_hash[..]).unwrap(),
           &keypair.secret_key(),
           // noncedata?   
 
-        ).serialize_der().to_vec();
+        ) ;
         
         // sighash type psuh it to the end of the signature before we serialize it
         // or after ?
-        let mut signature = signature.to_vec();
+        let mut signature = dersig.serialize_der().to_vec().to_vec();
 
         
         let mut ecdsasig = signature.clone();
@@ -221,12 +220,10 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
     
 
       let mut input = psbt.inputs[0].clone();
-      input.partial_sigs.insert(
-        bitcoin::PublicKey {  
-          compressed: true,
-          inner: keypair.public_key()
-        },
-        EcdsaSig::from_slice (&signature).unwrap()
+      input.partial_sigs.insert(bitcoin::PublicKey::from_slice(
+        keypair.public_key().serialize().as_slice() ).unwrap(),
+        EcdsaSig::from_slice
+        (&ecdsasig[..] ).unwrap()
 
       );
       psbt.inputs[0] = input.clone();
