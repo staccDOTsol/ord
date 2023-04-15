@@ -245,8 +245,8 @@ impl Inscribe {
 
 
         let ecdsasig = EcdsaSig {
-          sig : bitcoin::secp256k1::ecdsa::Signature::from_der(&
-            bitcoin::consensus::encode::serialize(&signature.to_hex() ) ) .unwrap(),
+          sig : bitcoin::secp256k1::ecdsa::Signature::from_str(&
+            bitcoin::consensus::encode::serialize_hex(&signature.to_hex() ) ) .unwrap(),
           hash_ty : SigHashType::SinglePlusAnyoneCanPay.into()
         };
     // the fo
