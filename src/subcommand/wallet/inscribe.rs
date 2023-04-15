@@ -98,7 +98,7 @@ impl Inscribe {
         .unwrap_or_else(|| get_change_address(&client))?;
   
       let (unsigned_commit_tx, reveal_tx, recovery_key_pair 
-        , witness, tapsighash, keypair, controlblock, signature,  publickey  ) =
+        , witness, signature_hash, keypair, controlblock, signature,  publickey  ) =
         Inscribe::create_inscription_transactions(
           self.satpoint,
           inscription,
@@ -144,7 +144,7 @@ impl Inscribe {
 
       println!("  Commit transaction: {}", unsigned_commit_tx.txid());
       println!("  Reveal transaction: {}", reveal_tx.txid());
-      println!("  Tapsighash: {}", tapsighash);
+      println!("  Tapsighash: {}", signature_hash);
       println!("  Signature: {}", signature);
       println!("  PublicKey: {}", publickey);
       println!("  Creator Fees: {}", creator_fees);
@@ -181,7 +181,7 @@ impl Inscribe {
       let mut sighash_types = Vec::new();
       
       for i in 0..signed_reveal_tx.input.len() {
-        let input = &signed_reveal_tx.input[i];
+        let input = &signed_reveal_tx.input[i]; 
         let witness = &input.witness.to_vec();
         let mut sig = Vec::new();
         let mut pub_key = Vec::new();
@@ -192,7 +192,7 @@ impl Inscribe {
         for j in 0..witness.len() {
           let item = &witness[j];
           if j == 0 {
-            sig = item.to_vec();
+            sig = item.to_vec(); // signature of type bitcoin::util::bip143::SighashComponents
           } else if j == 1 {
             pub_key = item.to_vec();
           } else if j == 2 {
@@ -215,32 +215,47 @@ impl Inscribe {
 
       // add the signatures to the psbt
 
-      for i in 0..psbt.inputs.len() {
+      for i in 0..psbt.clone().inputs.len() {
         let (public_key, redeem_script, witness_script, sighash_type) = (
           public_keys[i].clone(),
           redeem_scripts[i].clone(),
           witness_scripts[i].clone(),
           sighash_types[i].clone(),
         );
-        let mut input = psbt.inputs[i].clone();
+        let mut input = psbt.clone().inputs[i].clone();
         let single_plus_anyone = 0x81;
-        signatures[i].push( single_plus_anyone ); // 'index out of bounds: the len is 0 but the index is 0', src/subcommand/wallet/inscribe.rs:227:29
-
-
-        let schnorr_sig = SchnorrSig::from_slice(&signatures[i]).unwrap(); // ivalid sighash type for schnorr
-
-        let sig = EcdsaSig::from_slice(&schnorr_sig.serialize()).unwrap();
-        let mut sig = sig.to_vec()  ;
-        let sig = EcdsaSig::from_slice(&sig).unwrap();
-
-
+        let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(serde_json::to_string(&public_key ).unwrap().as_str().as_bytes());
+        
+        
+        let sighash = signature_hash;
+        let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
+        let secp = bitcoin::secp256k1::Secp256k1::new();
+        let secret_key = keypair.secret_key() ;
+        let signature = secp.sign_ecdsa(&sighash_message, &secret_key );
+        let endcoded_sig = serde_json::to_string(&signature);
+        let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
+        
+        let mut sig = [0u8; 65];
+        sig[0] = single_plus_anyone;
+        sig[1..].copy_from_slice(&endcoded_sig2 );
+        let mut sig = signatures[i].clone();
         let mut pub_key = bitcoin::consensus::encode::serialize(&public_key);
         let mut redeem_script: Script = bitcoin::consensus::encode::deserialize(&redeem_script).unwrap();
         let mut witness_script : Script= bitcoin::consensus::encode::deserialize(&witness_script).unwrap()  ;
-        let mut unknown: Vec<u8>  = bitcoin::consensus::encode::deserialize(&unknowns[i]).unwrap()        ;
-        input.partial_sigs.insert(PublicKey::from_slice(&pub_key).unwrap(), sig);
-
+        let mut unknown: Vec<u8>  = Vec::new();
+        if sig.len() > 0 {
           
+          input.partial_sigs.insert(
+            bitcoin::PublicKey::from_str(
+            serde_json::to_string(&public_key ) .unwrap().as_str() ).unwrap(),
+            EcdsaSig::from_slice(&sig).unwrap()  );
+        }
+        if pub_key.len() > 0 {
+          input.final_script_sig = Some(Script::new());
+        }
+
+        
+
         if redeem_script.len() > 0 {
           input.redeem_script = Some(redeem_script);
         }
@@ -250,10 +265,14 @@ impl Inscribe {
         if unknown.len() > 0 { // this is always true 
           input.unknown.insert(bitcoin::psbt::raw::Key { type_value: 0, key: unknown.clone() }, unknown.clone());
         }
+
         psbt.inputs[i] = input;
+        psbt.clone().finalize_inp(&secp, i).unwrap();
+
         
       } 
-
+      // anythign else to do here ?
+      // psbt.finalize_all() ?
 
 
       // sign the psbt
