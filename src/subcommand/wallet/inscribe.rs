@@ -180,15 +180,18 @@ let prevtx:Transaction = bitcoin::consensus::deserialize(&prevtx).unwrap();
 
 
 let previn = psbt.inputs[0].clone();
-psbt.inputs[0].non_witness_utxo = Some(previn.non_witness_utxo.unwrap());
-psbt.inputs[0].witness_utxo = Some(previn.witness_utxo.unwrap());
-psbt.inputs[0].partial_sigs = (previn.partial_sigs );
-psbt.inputs[0].redeem_script = Some(previn.redeem_script.unwrap());
-psbt.inputs[0].witness_script = Some(previn.witness_script.unwrap());
-psbt.inputs[0].bip32_derivation = (previn.bip32_derivation);
-psbt.inputs[0].final_script_sig = Some(previn.final_script_sig.unwrap());
-psbt.inputs[0].final_script_witness = Some(previn.final_script_witness.unwrap());
-psbt.inputs[0].unknown = (previn.unknown);
+psbt.inputs[0].non_witness_utxo = Some(prevtx);
+psbt.inputs[0].witness_utxo = Some(prevtx.output[0].clone());
+psbt.inputs[0].redeem_script = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].witness_script = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].final_script_sig = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].final_script_witness = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].partial_sigs = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].sighash_type = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].bip32_derivation = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].final_script_sig = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].final_script_witness = Some(prevtx.output[0].script_pubkey.clone());
+psbt.inputs[0].unknown = Some(prevtx.output[0].script_pubkey.clone()); 
 
 // let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
 // let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
@@ -197,7 +200,7 @@ let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
   vout: 0,
   redeem_script: Some(prevtx.output[0].script_pubkey.clone()),
   script_pub_key: prevtx.output[0].script_pubkey.clone(),
-  amount: Some(Amount::from_sat(prevtx.output[0].value)),
+  amount: Some(Amount::
 } ;
   // // if I sign the psbt here it works if I use keypair from the reveal transaction
 let keypair = bitcoin::util::key::PrivateKey::from_str  (
