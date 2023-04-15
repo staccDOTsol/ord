@@ -229,12 +229,14 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
       psbt.inputs[0] = input.clone();
 
       let mut input = psbt.inputs[0].clone();
+      let witness = sighash_cache
+      .witness_mut(0)
+      .expect("getting mutable witness reference should work");
+      witness.push(dersig.serialize_der().as_ref());
+      witness.push(reveal_script);
+      witness.push(&controlblock.serialize());
 
-      let mut witness = vec![];
-      witness.push( ecdsasig );
-      witness.push( reveal_script.to_bytes() );
-
-      input.final_script_witness = Some( Witness::from_vec(witness) );
+      input.final_script_witness = Some(  witness.clone() );
       psbt.inputs[0] = input.clone();
 
         let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
@@ -299,7 +301,9 @@ let prevtxs = vec![SignRawTransactionInput {
 
       
       
-      let psbt: Psbt = bitcoin::consensus::encode::deserialize(&hex).unwrap();
+      let psbt: Psbt = bitcoin::consensus::encode::deserialize(&hex).unwrap(); // error: Invalid Taproot control block size
+      //
+
       println!("psbt vsize {}", psbt.unsigned_tx.vsize());
       println!("psbt weight {}", psbt.unsigned_tx.get_weight());
       println!("psbt size {}", psbt.unsigned_tx.get_size());
