@@ -766,42 +766,26 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       output2.value = 6666 + a_fee.as_sat();
       output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
      // create a tx as previous output with a dummy input
-   
 
-    let reveal_tx = Transaction {
+    let mut reveal_tx = Transaction {
       input: vec![ TxIn {
         previous_output: input,
         script_sig: script::Builder::new().into_script(),
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+      },
+      TxIn {
+        previous_output: input2,
+        script_sig: script::Builder::new().into_script(),
+        witness: Witness::new(),
+        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
       }
       ],
-      output: vec![ output],
+      output: vec![output2,output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // SINGLE AND ANYONECANPAY
-     
     };
-    // let reveal_tx = Transaction {
-    //   input: vec![ TxIn {
-    //     previous_output: input,
-    //     script_sig: script::Builder::new().into_script(),
-    //     witness: Witness::new(),
-    //     sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-    //   }],
-    //   output: vec![output],
-    //   lock_time: PackedLockTime::ZERO,
-    //   version: 1,
-    //   // SINGLE AND ANYONECANPAY
-      
-    // };
-
-    //println!("reveal tx: {}", reveal_tx);
-    //println!("reveal tx: {}", reveal_tx);
-
-    // make reveal tx sighash type SINGLE | ANYONECANPAY
-    //let sighash_type = SIGHASH_SINGLE | SIGHASH_ANYONECANPAY; 
-
 
 
 
