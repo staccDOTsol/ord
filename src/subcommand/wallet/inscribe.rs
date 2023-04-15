@@ -239,11 +239,6 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
       input.final_script_witness = Some( Witness::from_vec(witness) );
       psbt.inputs[0] = input.clone();
 
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_witness = Some( Witness::from_vec(witness) );
-      psbt.inputs[0] = input.clone();
-
-
         let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
         
 
@@ -348,8 +343,6 @@ let prevtxs = vec![SignRawTransactionInput {
       .unwrap();
       file.write_all( psbt.as_bytes() )?;
       // step 9. broadcast the transaction
-
-     
       
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 Ok(())
