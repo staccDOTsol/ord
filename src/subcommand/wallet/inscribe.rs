@@ -21,7 +21,7 @@ use {
 use base64::display::Base64Display;
 use anyhow::Ok;
 use bech32::ToBase32;
-use bitcoincore_rpc::bitcoincore_rpc_json::{FinalizePsbtResult, CreateRawTransactionInput};
+use bitcoincore_rpc::bitcoincore_rpc_json::{FinalizePsbtResult, CreateRawTransactionInput, SignRawTransactionInput};
 use futures::future::UnwrapOrElse;
 use log::kv::ToValue;
 use miniscript::ToPublicKey;
@@ -171,13 +171,44 @@ let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::n
 
 // if I sign the psbt here it works
 //. client say invaid magic number 0x00000000 
-let signed_psbt = client.sign_raw_transaction_with_wallet(
-  &psbt.clone().extract_tx(),  // not finalized ? 
-  None,
-  None
-)?;
-let signed_psbt = signed_psbt.hex;
+// prevtx is the transaction that is being spent
+let prevtxs = signed_commit_tx.clone();
+let prevtx:Transaction = bitcoin::consensus::deserialize(&prevtxs).unwrap();
+let prevtx  = client.get_transaction(&prevtx.txid(), Some(true)).unwrap().hex ; 
+let prevtx:Transaction = bitcoin::consensus::deserialize(&prevtx).unwrap();
 
+
+
+let previn = psbt.inputs[0].clone();
+psbt.inputs[0].non_witness_utxo = Some(previn.non_witness_utxo.unwrap());
+psbt.inputs[0].witness_utxo = Some(previn.witness_utxo.unwrap());
+psbt.inputs[0].partial_sigs = (previn.partial_sigs );
+psbt.inputs[0].redeem_script = Some(previn.redeem_script.unwrap());
+psbt.inputs[0].witness_script = Some(previn.witness_script.unwrap());
+psbt.inputs[0].bip32_derivation = (previn.bip32_derivation);
+psbt.inputs[0].final_script_sig = Some(previn.final_script_sig.unwrap());
+psbt.inputs[0].final_script_witness = Some(previn.final_script_witness.unwrap());
+psbt.inputs[0].unknown = (previn.unknown);
+
+// let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx).unwrap();
+// let mut borrowed: HashMap::<usize, (u32, Borrowed<bitcoin::TxOut>)> = HashMap::new();
+let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
+  txid: prevtx.txid(),
+  vout: 0,
+  redeem_script: Some(prevtx.output[0].script_pubkey.clone()),
+  script_pub_key: prevtx.output[0].script_pubkey.clone(),
+  amount: Some(Amount::from_sat(prevtx.output[0].value)),
+} ;
+  // // if I sign the psbt here it works if I use keypair from the reveal transaction
+let keypair = bitcoin::util::key::PrivateKey::from_str  (
+  serde_json::to_string(&recovery_key_pair ).unwrap().as_str()
+).unwrap();
+let signed_psbt = client.sign_raw_transaction_with_key(
+  &psbt.extract_tx(),
+  &[keypair],
+  Some(&[previnput ]),  
+  Some(SigHashType::SinglePlusAnyoneCanPay.into()), 
+)?;
 let hex_string = serde_json::to_string(&signed_psbt).unwrap();
 
 println!("  Signed PSBT: {}", hex_string  ) ;
