@@ -20,7 +20,7 @@ use base64::display::Base64Display;
 use anyhow::Ok;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig, hashes::hex::FromHex};
 use mp4::Bytes;
 use serde_json::to_vec;
 use std::{usize, collections::HashMap, io::Read};
@@ -215,6 +215,9 @@ impl Inscribe {
       let mut psbt = Psbt::from_unsigned_tx(reveal_tx.clone()).unwrap();
 
       let mut input = signed_reval_tx.input[0].clone();
+      // is this the right witness?
+      // yes
+
       input.witness = witness.clone();
 
       let mut input = psbt.inputs[0].clone();
@@ -231,11 +234,17 @@ impl Inscribe {
 
       let mut input = psbt.inputs[0].clone();
       input.final_script_witness = Some(witness.clone());
-      let partial_sig = bitcoin::consensus::encode::serialize(&signature.to_hex());
-      let partial_sig : EcdsaSig = EcdsaSig::from_slice(&partial_sig).unwrap();
+      let partial_sig = EcdsaSig::from_slice(&witness.clone().iter().nth(1).unwrap().clone()[..]).unwrap();
+
+      // will this complain about the sighash type?
+      // no
+
+
       
       let mut input = psbt.inputs[0].clone();
       input.partial_sigs.insert(publickey, partial_sig);
+
+
       
       let mut input = psbt.inputs[0].clone();
       input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
@@ -244,9 +253,7 @@ impl Inscribe {
         Fingerprint::from_str("00000000").unwrap(),
         DerivationPath::from_str("m/0").unwrap() )
       );
-    input.bip32_derivation.insert(secppubkey, keysource); 
-
-      let mut input = psbt.inputs[0].clone();
+    input.bip32_derivation.insert(secppubkey, keysource.clone());
 
 
       
@@ -278,11 +285,50 @@ impl Inscribe {
       input.final_script_sig = Some(Script::from(final_script_sig.clone()));
       let final_script_sig = Base64Display::with_config(&final_script_sig, base64::STANDARD).to_string();
       
+      // what if we don't add the final script witness?
+      let final_script_witness = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&witness).unwrap());
+      input.final_script_witness = Some(witness.clone());
+
+      let final_script_witness = Base64Display::with_config(&final_script_witness, base64::STANDARD).to_string();
+
+
+      println!("witness: {}", witness.clone().len());
+
+
       println!("witness script: {}", witness_script);
       println!("redeem script: {}", redeem_script);
       println!("partial sig: {}", partial_sig);
       println!("final script sig: {}", final_script_sig);
 
+      println!("final script witness: {}", final_script_witness);
+      println!("sighash type: {}", input.clone().sighash_type.unwrap());
+      println!("prevtxs: {}", input.clone().non_witness_utxo.unwrap().txid());
+      println!("signature hash: {}", signature_hash);
+      println!("publickey: {}", publickey);
+      println!("signature: {}", signature.to_hex());
+      
+      // before I test this is anythign broken  
+      // what if we don't add the witness utxo?
+      let witness_utxo = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&unsigned_commit_tx.output[0]).unwrap());
+      input.witness_utxo = Some(TxOut {
+        script_pubkey: unsigned_commit_tx.output[0].script_pubkey.clone(),
+        value: (unsigned_commit_tx.output[0].value),
+      });
+      let witness_utxo = Base64Display::with_config(&witness_utxo, base64::STANDARD).to_string();
+      println!("witness utxo: {}", witness_utxo);
+      
+      // what if we don't add the bip32 derivation?
+      let bip32_derivation = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&keysource).unwrap());
+      let bip32_derivation = Base64Display::with_config(&bip32_derivation, base64::STANDARD).to_string();
+      println!("bip32 derivation: {}", bip32_derivation);
+
+      // what if we don't add the sighash type?
+      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
+      let sighash_type = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.clone().sighash_type.unwrap()).unwrap());
+      let sighash_type = Base64Display::with_config(&sighash_type, base64::STANDARD).to_string();
+      println!("sighash type: {}", sighash_type);
+
+      
       psbt.inputs[0] = input;
 
       // step 7 - sign the psbt
@@ -299,13 +345,24 @@ impl Inscribe {
       // we need to get the publickey
 
 
+      // we need to get the psbt
+      // we have the psbt
+
+
+
     
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD) .to_string();
     
+      // we need to get the keypair
+      // we have the keypair
+      // we need to get the prevtxs
+
+    
+    
+      // wallet process ?
+      // we need to get the sighash
+      // we have the sighash
       
-    
-    
-    
       let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap(); 
       let success = signed_psbt.complete;
       println!("success: {}", success);
