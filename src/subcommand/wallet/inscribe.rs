@@ -240,7 +240,14 @@ impl Inscribe {
           &keypair,
         );
 
-        let ecdsasig = EcdsaSig::from_slice( consensus::encode::serialize(&signature.to_hex()).as_slice() ).unwrap();
+        //NonStandardSighashType(102)', src/subcommand/wallet/inscribe.rs:243:109
+
+
+
+        let ecdsasig = EcdsaSig {
+          sig : bitcoin::secp256k1::Signature::from_compact(&signature.to_hex().as_bytes()).unwrap(),
+          hash_ty : SigHashType::SinglePlusAnyoneCanPay.into()
+        };
     // the fo
     let mut witness: Vec<Vec<u8>> = Vec::new();
     witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
