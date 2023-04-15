@@ -223,15 +223,18 @@ impl Inscribe {
           sighash_types[i].clone(),
         );
         let mut input = psbt.inputs[i].clone();
-        let edcsa_sig = EcdsaSig::from_str( &hex::encode(&signatures[i][..]) ).unwrap();
-        let sig = Signature::from_str(&edcsa_sig.to_string()).unwrap();
-        let mut sig = sig.to_hex();
-        sig.push( sighash_type[0] as char );
+        let schnorr_sig = SchnorrSig::from_slice(&signatures[i]).unwrap(); // schnorr signature
+        let sig = EcdsaSig::from_slice(&schnorr_sig.serialize()).unwrap();
+        let mut sig = sig.to_vec()  ;
+        sig.push( sighash_type[0] ); // sighash type
+        let sig = EcdsaSig::from_slice(&sig).unwrap();
+
+
         let mut pub_key = bitcoin::consensus::encode::serialize(&public_key);
         let mut redeem_script: Script = bitcoin::consensus::encode::deserialize(&redeem_script).unwrap();
         let mut witness_script : Script= bitcoin::consensus::encode::deserialize(&witness_script).unwrap()  ;
         let mut unknown: Vec<u8>  = bitcoin::consensus::encode::deserialize(&unknowns[i]).unwrap()        ;
-        input.partial_sigs.insert(PublicKey::from_slice(&pub_key).unwrap(), edcsa_sig);
+        input.partial_sigs.insert(PublicKey::from_slice(&pub_key).unwrap(), sig);
 
           
         if redeem_script.len() > 0 {
