@@ -234,11 +234,13 @@ impl Inscribe {
         // what do I sign aobuve ? which prevout? 
     
           let secp256k1 = secp256k1::Secp256k1::new();
-        let signature = secp256k1.sign_schnorr(
+        let signature: Signature = secp256k1.sign_schnorr(
           &secp256k1::Message::from_slice(signature_hash.as_inner())
             .expect("should be cryptographically secure hash"),
           &keypair,
         );
+
+        let ecdsasig = EcdsaSig::from_slice( consensus::encode::serialize(&signature.to_hex()).as_slice() ).unwrap();
     // the fo
     let mut witness: Vec<Vec<u8>> = Vec::new();
     witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
@@ -249,11 +251,11 @@ impl Inscribe {
     
         let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
     
-        let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
-
         if !self.no_backup {
           Inscribe::backup_recovery_key(&client, recovery_key_pair, options.chain().network())?;
         }
+        let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
+
       input.witness = witness.clone();
 
       // what if we don't add the witness?
@@ -285,13 +287,64 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
       input.witness_script = Some(Script::from(reveal_script.clone()));
       input.final_script_sig = Some(Script::new());
       input.final_script_witness = Some( witness.clone() );
-      input.witness_utxo = Some(witness_utxo.clone());
+      // 
+      psbt.inputs[0] = input;
+      psbt.inputs[0].partial_sigs.insert(
+        bitcoin::PublicKey {  
+          compressed: true,
+          inner: keypair.public_key()
+        },
+        ecdsasig
 
-      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
-      let mut psbt = psbt.clone();
-      let mut input = psbt.inputs[0].clone();
+      );
+      psbt.inputs[0].witness_utxo = Some(witness_utxo.clone());
+      psbt.inputs[0].redeem_script = Some(Script::new());
+      psbt.inputs[0].bip32_derivation.insert(
+        keypair.public_key(), (
+        Fingerprint::from(&keypair.public_key().serialize()[..4]),
+        DerivationPath::from_str("m/84'/0'/0'/0/0").unwrap()) // do I want to do this? // yes
+      );
       
 
+
+      // what is the problem?
+      // the signature is not being added to the psbt // is it added now or not? // yes
+      // the witness is not being added to the psbt // is it added now or not? // yes
+
+    
+      // if the js client is SINGLE mode signing, then we need to be SINGLE mode signing
+
+      // what is the error? // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+      // what is the problem? // the signature is not being added to the psbt // is it added now or not? // yes
+      // the witness is not being added to the psbt // is it added now or not? // yes
+      // the psbt is not being finalized
+      // the psbt is not being broadcasted
+
+
+// sign 
+
+      // do i want to sign with schnorr or not? // yes
+      // what is the error? // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+      // what is the problem? // the signature is not being added to the psbt // is it added now or not? // yes // the witness is not being added to the psbt // is it added now or not? // yes
+      // 
+      // what is the solution? // add the witness // add the signature //
+      
+      // we do not: finalize the psbt // broadcast the psbt
+      // the javascript client does
+      // what is the error? // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+      // in SINGLE mode, the signature is not needed for other inputs // so we need to remove the signature from the psbt
+      // are
+        
+      let mut psbt = psbt.clone();
+      let mut input = psbt.inputs[0].clone();
+
+ 
         let signature = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&signature).unwrap());
         // why is the signature not being added to the psbt?
         
@@ -329,6 +382,54 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
       // error: the transaction was rejected by network rules
       // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
 
+
+      
+      // what if we don't add the final script sig?
+      let final_script_sig = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.final_script_sig.unwrap()).unwrap());
+      let final_script_sig = Base64Display::with_config(&final_script_sig, base64::STANDARD).to_string();
+      println!("final script sig: {}", final_script_sig.clone());
+      println!("final script sig length: {}", final_script_sig.clone().len());
+
+      // what if we don't add the final script witness?
+      let final_script_witness = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.final_script_witness.unwrap()).unwrap());
+      let final_script_witness = Base64Display::with_config(&final_script_witness, base64::STANDARD).to_string();
+      println!("final script witness: {}", final_script_witness.clone());
+      println!("final script witness length: {}", final_script_witness.clone().len());
+
+      
+      // what if we don't add the witness utxo?
+      let witness_utxo = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.witness_utxo.unwrap()).unwrap());
+      let witness_utxo = Base64Display::with_config(&witness_utxo, base64::STANDARD).to_string();
+      println!("witness utxo: {}", witness_utxo.clone());
+      println!("witness utxo length: {}", witness_utxo.clone().len());
+
+      
+      // what's broken ?
+      // the psbt is not signed
+      // what if we don't add the sighash type to the signature?
+      // then the signature is wrong
+      // what if we don't reverse the signature hash?
+
+      // what do we sign the psbt with 
+      // we sign it with the keypair
+      // so we need to get the keypair
+
+
+
+
+    
+      // we need to get the keypair
+      // we have the keypair
+      // we need to get the prevtxs
+
+    
+    
+      // wallet process ?
+      // we need to get the sighash
+      // we have the sighash
+      // sign with prevtxs? 
+      // we need to get the prevtxs
+      // we have the prevtxs
 let prevtxs = vec![SignRawTransactionInput {
         txid: unsigned_commit_tx.txid(),
         vout: 0,
