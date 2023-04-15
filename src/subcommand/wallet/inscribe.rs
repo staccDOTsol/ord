@@ -18,9 +18,11 @@ use {
 };
 use base64::display::Base64Display;
 use anyhow::Ok;
-use bitcoincore_rpc::bitcoincore_rpc_json::CreateRawTransactionInput;
+use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig};
+use mp4::Bytes;
+use serde_json::to_vec;
 use std::{usize, collections::HashMap, io::Read};
 use bitcoin::{hashes::hex::ToHex,  EcdsaSighashType as SigHashType, util::{taproot::TapSighashHash}};
 
@@ -159,32 +161,151 @@ impl Inscribe {
       println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
     
       let mut psbt = Psbt::from_unsigned_tx(reveal_tx.clone()).unwrap();
-      // step 1 - what if we don't sign the reveal transaction?
+      // all the things up til now are just to get the psbt
+      // now we need to add the witness and the signature
+      // is revealtx signed already or not?
+      // it is not signed
+      // so we need to sign it with the keypair
+      let mut prevtxs: Vec<SignRawTransactionInput> = Vec::new();
+       let prevtx = SignRawTransactionInput {
+         txid: unsigned_commit_tx.txid(),
+         script_pub_key: unsigned_commit_tx.output[0].script_pubkey.clone(),
+       vout: 0,
+         redeem_script: None,
+         amount: Some(Amount::from_sat(unsigned_commit_tx.output[0].value)),
+       };
+      prevtxs.push(prevtx);
+
+
+      let signed_reval_tx = client.sign_raw_transaction_with_key(
+        &reveal_tx,
+       &[PrivateKey::new(keypair.secret_key(), Network::Bitcoin)],
+        Some(prevtxs.to_vec().as_slice()),
+        Some(SigHashType::SinglePlusAnyoneCanPay.into())
+      ).unwrap();
+      let signed_reval_tx = signed_reval_tx.hex;
+
+
+      let signed_reval_tx: Transaction = bitcoin::consensus::encode::deserialize(&signed_reval_tx).unwrap();
+      // won't work because the witness is not added
+      // let signed_reval_tx = client.sign_raw_transaction_with_wallet(
+      //   &reveal_tx,
+      //   None,
+      //   None
+      // ).unwrap();
+      // do we sign the reveal tx with the keypair or with the wallet?
+      // we sign it with the keypair
+      // so we need to get the keypair
+      // we have the keypair
+      // we need to get the witness
+      // we have the witness
+      // we need to get the signature
+      // we have the signature
+      // we need to get the publickey
+      // we have the publickey
+      // we need to get the controlblock
+      // we have the controlblock
+      // we need to get the signature hash
+      // we have the signature hash
+      // we need to get the prevtxs
+      // we have the prevtxs
+      // we need to get the psbt
+      // we have the psbt
       
-      let witness_vec = vec![witness];
-      let witness_script = Script::new();
-      let redeem_script = Script::new();
-      let sighash = signature_hash;
-      
+      let mut psbt = Psbt::from_unsigned_tx(reveal_tx.clone()).unwrap();
+
+      let mut input = signed_reval_tx.input[0].clone();
+      input.witness = witness.clone();
+
       let mut input = psbt.inputs[0].clone();
       input.witness_utxo = Some(TxOut {
-        value: 100000,
-        script_pubkey: Script::new(),
+        script_pubkey: unsigned_commit_tx.output[0].script_pubkey.clone(),
+        value: (unsigned_commit_tx.output[0].value),
       });
-      input.witness_script = Some(witness_script);
-      input.redeem_script = Some(redeem_script);
-      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
-      input.partial_sigs . insert(publickey, EcdsaSig::from_slice(&signature.to_hex().as_bytes()).unwrap());
-      
-      psbt.inputs[0] = input;
-      // step 2 - add the witness script
-      // step 3 - add the redeem script 
-      // step 4 - add the sighash type
-      // step 5 - add the partial signature
-      // step 6 - add the final script sig
-      // step 7 - sign the psbt
 
+      let mut input = psbt.inputs[0].clone();
+      input.non_witness_utxo = Some(unsigned_commit_tx.clone());
+
+      let mut input = psbt.inputs[0].clone();
+      input.final_script_sig = Some(Script::new());
+
+      let mut input = psbt.inputs[0].clone();
+      input.final_script_witness = Some(witness.clone());
+      let partial_sig = bitcoin::consensus::encode::serialize(&signature.to_hex());
+      let partial_sig : EcdsaSig = EcdsaSig::from_slice(&partial_sig).unwrap();
+      
+      let mut input = psbt.inputs[0].clone();
+      input.partial_sigs.insert(publickey, partial_sig);
+      
+      let mut input = psbt.inputs[0].clone();
+      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
+      let secppubkey = secp256k1::PublicKey::from_slice(&publickey.to_bytes()).unwrap();
+      let keysource = KeySource::from((
+        Fingerprint::from_str("00000000").unwrap(),
+        DerivationPath::from_str("m/0").unwrap() )
+      );
+    input.bip32_derivation.insert(secppubkey, keysource); 
+
+      let mut input = psbt.inputs[0].clone();
+
+
+      
+      // what if we don't add the witness script?
+      let witness_script = bitcoin::Address::p2wsh(&Script::from(witness.serialize()), bitcoin::Network::Bitcoin).script_pubkey();
+      input.witness_script = Some(witness_script.clone());
+      let witness_script = bitcoin::consensus::encode::serialize(&witness_script);
+      let witness_script = Base64Display::with_config(&witness_script, base64::STANDARD).to_string();
+      
+      let mut input = psbt.inputs[0].clone();
+      // what if we don't add the redeem script?
+      let redeem_script = bitcoin::Address::p2shwpkh(&publickey, bitcoin::Network::Bitcoin).unwrap().script_pubkey();
+      input.redeem_script = Some(redeem_script.clone());
+      let redeem_script = bitcoin::consensus::encode::serialize(&redeem_script);
+      let redeem_script = Base64Display::with_config(&redeem_script, base64::STANDARD).to_string();
+      
+      // what if we don't add the sighash type?
+      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
+      // what if we don't add the partial signature?
+      let partial_sig = bitcoin::consensus::encode::serialize(&signature.to_hex());
+      let partial_sig : EcdsaSig = EcdsaSig::from_slice(&partial_sig).unwrap();
+      
+      input.partial_sigs.insert(publickey, partial_sig);
+      
+      let partial_sig = Base64Display::with_config(&partial_sig.to_vec(), base64::STANDARD).to_string();
+      
+      // what if we don't add the final script sig?
+      let final_script_sig = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&controlblock).unwrap());
+      input.final_script_sig = Some(Script::from(final_script_sig.clone()));
+      let final_script_sig = Base64Display::with_config(&final_script_sig, base64::STANDARD).to_string();
+      
+      println!("witness script: {}", witness_script);
+      println!("redeem script: {}", redeem_script);
+      println!("partial sig: {}", partial_sig);
+      println!("final script sig: {}", final_script_sig);
+
+      psbt.inputs[0] = input;
+
+      // step 7 - sign the psbt
+      // we need to get the psbt
+      // we have the psbt
+      // we need to get the keypair
+      // we have the keypair
+      // we need to get the prevtxs
+      // we have the prevtxs
+      // we need to get the sighash
+      // we have the sighash
+      // we need to get the signature
+      // we have the signature
+      // we need to get the publickey
+
+
+    
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD) .to_string();
+    
+      
+    
+    
+    
       let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap(); 
       let success = signed_psbt.complete;
       println!("success: {}", success);
