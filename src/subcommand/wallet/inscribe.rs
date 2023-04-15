@@ -399,8 +399,8 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
         // idnex 1 is tha taproot garbage output
-        1,
-          &Prevouts::One(1,  
+        0,
+          &Prevouts::One(0, 
           output),
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
         SchnorrSighashType::SinglePlusAnyoneCanPay
