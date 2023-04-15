@@ -179,7 +179,7 @@ impl Inscribe {
         let input = &signed_reveal_tx.input[i]; 
         let witness = &input.witness.to_vec();
         let mut sig = Vec::new();
-        let mut pub_key = PublicKey::from_slice(&[0; 33]).unwrap();
+        let mut pub_key = Vec::new();
         let mut redeem_script = Vec::new();
         let mut witness_script = Vec::new();
         let mut unknown = Vec::new();
@@ -191,7 +191,7 @@ impl Inscribe {
           } else if j == 1 {
             // typeof item is bitcoin::PublicKey
             // typeof item.to_vec() is Vec<u8>
-            pub_key = PublicKey::from_slice(&item.to_vec()).unwrap();
+            pub_key = item.to_vec();
           } else if j == 2 {
             redeem_script = item.to_vec();
           } else if j == 3 {
@@ -203,7 +203,7 @@ impl Inscribe {
           }
         }
         signatures.push(  bitcoin::consensus::encode::serialize(&sig) );
-        public_keys.push(pub_key);
+        public_keys.push(PublicKey::from_slice(&pub_key).unwrap() );
         redeem_scripts.push(redeem_script);
         witness_scripts.push(witness_script);
         unknowns.push(unknown);
