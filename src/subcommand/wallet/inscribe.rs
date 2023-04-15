@@ -192,35 +192,11 @@ impl Inscribe {
           ).unwrap();
           signed_prevtxs.push(signed_prevtx);
         }
-          // are they signed now?
-          // yes
-          // so we need to add the witness and the signature to the psbt
-          
-          // add the witness
-          // add the signature
-          // finalize the psbt
-          // broadcast the psbt
-          
-          // what is the error?
-          // error: the transaction was rejected by network rules
-          // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+        
 
-          // what is the problem?
-          // the signature is not being added to the psbt
-          // the witness is not being added to the psbt
-          // the psbt is not being finalized
-          // the psbt is not being broadcasted
-
-          // what is the solution?
-          // add the witness
-          // add the signature
-          // finalize the psbt
-          // broadcast the psbt
-
-
-        let mut input = psbt.unsigned_tx.input[0].clone();
         let mut sighash_cache = SighashCache::new(  & mut reveal_tx);
         let output = &unsigned_commit_tx.output[0].clone();
+
         let signature_hash = sighash_cache
           .taproot_script_spend_signature_hash(
             // idnex 1 is tha taproot garbage output
@@ -231,72 +207,29 @@ impl Inscribe {
             SchnorrSighashType::SinglePlusAnyoneCanPay
           )
           .expect("signature hash should compute");
-    
-        // what do I sign aobuve ? which prevout? 
-    
-          let secp256k1 = secp256k1::Secp256k1::new();
+
+        let secp256k1 = secp256k1::Secp256k1::new();
         let signature: Signature = secp256k1.sign_schnorr(
           &secp256k1::Message::from_slice(signature_hash.as_inner())
             .expect("should be cryptographically secure hash"),
           &keypair,
         );
 
-        //NonStandardSighashType(102)', src/subcommand/wallet/inscribe.rs:243:109
+        let sig = signature.to_hex();
+        let sig = sig.as_bytes();
+        let sig = sig.to_vec();
 
-
-
-        let ecdsasig = EcdsaSig {
-          sig : bitcoin::secp256k1::ecdsa::Signature::from_str(&signature.to_string()).unwrap(),
-            hash_ty: SigHashType::SinglePlusAnyoneCanPay.into()
-        };
-    // the fo
-    let mut witness: Vec<Vec<u8>> = Vec::new();
-    witness.push(bitcoin::consensus::encode::serialize(&signature.to_hex()));
-        witness.push(reveal_script.clone().into_bytes());
-        witness.push(controlblock.serialize());
-    
-        let witness = Witness::from_vec(witness);
-    
-        let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
-    
-        if !self.no_backup {
-          Inscribe::backup_recovery_key(&client, recovery_key_pair, options.chain().network())?;
-        }
-        let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
-
-      input.witness = witness.clone();
-
-      // what if we don't add the witness?
-      
-
-
-      psbt.unsigned_tx.input[0] = input;
-      
+        let ecdsasig = EcdsaSig::from_slice(&sig).unwrap();
         
-
-
-          // what is the problem?
-          // the signature is not being added to the psbt
-          // the witness is not being added to the psbt // is it added now or not? // yes
-          // the psbt is not being finalized
-          // the psbt is not being broadcasted
-
 
       let mut input = psbt.inputs[0].clone();
-      
-
-          // what is the problem?
-          // the signature is not being added to the psbt // is it added now or not? // yes
-          // the witness is not being added to the psbt // is it added now or not? // yes
-
-        
 let witness_utxo = reveal_tx.input[0].previous_output;
 let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
       input.witness_script = Some(Script::from(reveal_script.clone()));
       input.final_script_sig = Some(Script::new());
-      input.final_script_witness = Some( witness.clone() );
       // 
-      psbt.inputs[0] = input;
+      psbt.inputs[0] = input.clone();
+      let mut input = psbt.inputs[0].clone();
       psbt.inputs[0].partial_sigs.insert(
         bitcoin::PublicKey {  
           compressed: true,
@@ -305,8 +238,52 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
         ecdsasig
 
       );
+        let ecdsasig = ecdsasig.serialize();
+        let ecdsasig = ecdsasig.to_vec();
+        let ecdsasig = ecdsasig.as_slice();
+        let ecdsasig = ecdsasig.to_vec();
+        
+        let mut witness: Vec<Vec<u8>> = Vec::new();
+        witness.push(bitcoin::consensus::encode::serialize(&ecdsasig));
+        witness.push(reveal_script.clone().into_bytes());
+        witness.push(controlblock.serialize());
+
+        let witness = Witness::from_vec(witness);
+        input.final_script_witness = Some( witness.clone() );
+
+        let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
+
+        if !self.no_backup {
+          Inscribe::backup_recovery_key(&client, recovery_key_pair,  Network::Bitcoin); 
+        }
+
+        let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
+        //NonStandardSighashType(102)', src/subcommand/wallet/inscribe.rs:243:109
+
+
+// invalid sighash type: NonStandardSighashType(102)', src/subcommand/wallet/inscribe.rs:243:109
+// invalid 
+     
+          // what is the problem?
+          // the signature is not being added to the psbt
+          // the witness is not being added to the psbt // is it added now or not? // yes
+          // the psbt is not being finalized
+          // the psbt is not being broadcasted
+
+      
+
+          // what is the problem?
+          // the signature is not being added to the psbt // is it added now or not? // yes
+          // the witness is not being added to the psbt // is it added now or not? // yes
+
+        
       psbt.inputs[0].witness_utxo = Some(witness_utxo.clone());
-      psbt.inputs[0].redeem_script = Some(Script::new());
+
+      // what is the problem?
+      // the signature is not being added to the psbt // is it added now or not? // yes
+      // the witness is not being added to the psbt // is it added now or not? // yes
+        
+        
       psbt.inputs[0].bip32_derivation.insert(
         keypair.public_key(), (
         Fingerprint::from(&keypair.public_key().serialize()[..4]),
