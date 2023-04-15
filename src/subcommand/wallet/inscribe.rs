@@ -19,6 +19,7 @@ use {
 use axum::Json;
 use base64::display::Base64Display;
 use anyhow::Ok;
+use bech32::encode;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
 use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr}, SchnorrSig, hashes::hex::FromHex};
@@ -245,9 +246,8 @@ impl Inscribe {
 
 
         let ecdsasig = EcdsaSig {
-          sig : bitcoin::secp256k1::ecdsa::Signature::from_str(&
-            bitcoin::consensus::encode::serialize_hex(&signature.to_hex() ) ) .unwrap(),
-          hash_ty : SigHashType::SinglePlusAnyoneCanPay.into()
+          sig : bitcoin::secp256k1::ecdsa::Signature::from_str(&signature.to_string()).unwrap(),
+            hash_ty: SigHashType::SinglePlusAnyoneCanPay.into()
         };
     // the fo
     let mut witness: Vec<Vec<u8>> = Vec::new();
