@@ -240,6 +240,40 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
  let extracty = psbt .clone().extract_tx();
  let mut sighash_cache = SighashCache::new(& extracty);
 
+ for i in 0..psbt.inputs.len() {
+    let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
+    
+    // there is not witnesutxo in the psbt
+
+    let previous_output =  &borrowed.get(&i).unwrap().1; //psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
+    let reveal_script = bitcoin::Script::from_str(
+      serde_json::to_string(&witness).unwrap().as_str()
+    ).unwrap();
+    let keypair = bitcoin::util::key::PrivateKey::from_str  (
+      serde_json::to_string(&recovery_key_pair ).unwrap().as_str()
+    ).unwrap();
+    let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(serde_json::to_string(&public_key ).unwrap().as_str().as_bytes());
+    let sighash = sighash_cache.taproot_script_spend_signature_hash(
+      i,
+      &Prevouts::One(i, previous_output.0), //&Prevouts::One(i, &previous_output
+      TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ),
+      SchnorrSighashType::SinglePlusAnyoneCanPay
+    ).unwrap()  ;
+    let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
+    let secp = bitcoin::secp256k1::Secp256k1::new();
+    let secret_key = secp256k1::SecretKey::from_slice(&keypair.to_bytes()).unwrap();
+    let signature = secp.sign_ecdsa(&sighash_message, &secret_key );
+    let endcoded_sig = serde_json::to_string(&signature);
+    let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
+    let mut sig = vec![0u8; endcoded_sig2.len() + 1];
+    sig[0] = SchnorrSighashType::SinglePlusAnyoneCanPay as u8;
+    sig[1..].copy_from_slice(&endcoded_sig2 );
+    psbt.inputs[i].partial_sigs.insert(
+      bitcoin::PublicKey::from_str(
+      serde_json::to_string(&public_key ) .unwrap().as_str() ).unwrap(),
+      EcdsaSig::from_slice(&endcoded_sig2 ).unwrap()  );
+  } 
+
           let serialized_psbt = base64::encode(serde_json::to_string(&psbt).unwrap());
 let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
         
