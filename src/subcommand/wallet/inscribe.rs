@@ -244,8 +244,10 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
     let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
     
     // there is not witnesutxo in the psbt
-
-    let previous_output =  &borrowed.get(&i).unwrap().1; //psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
+    if psbt.inputs[i].witness_utxo.is_none() {
+      continue;
+    }
+   let previous_output = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
     let reveal_script = bitcoin::Script::from_str(
       serde_json::to_string(&witness).unwrap().as_str()
     ).unwrap();
@@ -255,7 +257,7 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
     let leaf_hash = bitcoin::hashes::sha256d::Hash::hash(serde_json::to_string(&public_key ).unwrap().as_str().as_bytes());
     let sighash = sighash_cache.taproot_script_spend_signature_hash(
       i,
-      &Prevouts::One(i, previous_output.0), //&Prevouts::One(i, &previous_output
+      &Prevouts::One(i, previous_output), //&Prevouts::One(i, &previous_output
       TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ),
       SchnorrSighashType::SinglePlusAnyoneCanPay
     ).unwrap()  ;
