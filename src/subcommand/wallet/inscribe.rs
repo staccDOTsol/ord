@@ -16,14 +16,16 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
+use axum::Json;
 use base64::display::Base64Display;
 use anyhow::Ok;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig, hashes::hex::FromHex};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::ecdsa::{serialized_signature, SerializedSignature}, SchnorrSig, hashes::hex::FromHex};
 use mp4::Bytes;
+use serde::__private::de::Borrowed;
 use serde_json::to_vec;
-use std::{usize, collections::HashMap, io::Read};
+use std::{usize, collections::HashMap, io::{Read, BufWriter}, fs::OpenOptions};
 use bitcoin::{hashes::hex::ToHex,  EcdsaSighashType as SigHashType, util::{taproot::TapSighashHash}};
 
 use miniscript::{ psbt::PsbtExt};
@@ -160,181 +162,162 @@ impl Inscribe {
       let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
       println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
     
-      let mut psbt = Psbt::from_unsigned_tx(reveal_tx.clone()).unwrap();
+      let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
       // all the things up til now are just to get the psbt
       // now we need to add the witness and the signature
       // is revealtx signed already or not?
       // it is not signed
       // so we need to sign it with the keypair
-      let mut prevtxs: Vec<SignRawTransactionInput> = Vec::new();
-       let prevtx = SignRawTransactionInput {
-         txid: unsigned_commit_tx.txid(),
-         script_pub_key: unsigned_commit_tx.output[0].script_pubkey.clone(),
-       vout: 0,
-         redeem_script: None,
-         amount: Some(Amount::from_sat(unsigned_commit_tx.output[0].value)),
-       };
-      prevtxs.push(prevtx);
 
-
-      let signed_reval_tx = client.sign_raw_transaction_with_key(
-        &reveal_tx,
-       &[PrivateKey::new(keypair.secret_key(), Network::Bitcoin)],
-        Some(prevtxs.to_vec().as_slice()),
-        Some(SigHashType::SinglePlusAnyoneCanPay.into())
-      ).unwrap();
-      let signed_reval_tx = signed_reval_tx.hex;
-
-
-      let signed_reval_tx: Transaction = bitcoin::consensus::encode::deserialize(&signed_reval_tx).unwrap();
-      // won't work because the witness is not added
-      // let signed_reval_tx = client.sign_raw_transaction_with_wallet(
-      //   &reveal_tx,
-      //   None,
-      //   None
-      // ).unwrap();
-      // do we sign the reveal tx with the keypair or with the wallet?
-      // we sign it with the keypair
-      // so we need to get the keypair
-      // we have the keypair
-      // we need to get the witness
-      // we have the witness
-      // we need to get the signature
-      // we have the signature
-      // we need to get the publickey
-      // we have the publickey
-      // we need to get the controlblock
-      // we have the controlblock
-      // we need to get the signature hash
-      // we have the signature hash
-      // we need to get the prevtxs
-      // we have the prevtxs
-      // we need to get the psbt
-      // we have the psbt
+      // whats' broken 
+      // the signature is not being added to the psbt
+      // the witness is not being added to the psbt
+      // the psbt is not being finalized
+      // the psbt is not being broadcasted
+    
+      let mut prevtxs = client.list_transactions(None, Some(1000), None, None ).unwrap()
+      .iter()
       
-      let mut psbt = Psbt::from_unsigned_tx(reveal_tx.clone()).unwrap();
+      .filter(|tx| tx.info.txid == psbt.unsigned_tx.input[0].previous_output.txid)
+      .map(|tx| client.get_raw_transaction (&tx.info.txid, None).unwrap())
+      .collect::<Vec<Transaction>>();
 
-      let mut input = signed_reval_tx.input[0].clone();
-      // is this the right witness?
-      // yes
+
+
+        let mut signed_prevtxs = vec![];
+        for prevtx in prevtxs {
+          let signed_prevtx = client.sign_raw_transaction_with_key(
+            &prevtx,
+            &[PrivateKey::new(keypair.secret_key(), Network::Bitcoin)],
+            None, // prevtxs
+            Some(SigHashType::SinglePlusAnyoneCanPay.into())
+          ).unwrap();
+          signed_prevtxs.push(signed_prevtx);
+        }
+          // are they signed now?
+          // yes
+          // so we need to add the witness and the signature to the psbt
+          
+          // add the witness
+          // add the signature
+          // finalize the psbt
+          // broadcast the psbt
+          
+          // what is the error?
+          // error: the transaction was rejected by network rules
+          // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+          // what is the problem?
+          // the signature is not being added to the psbt
+          // the witness is not being added to the psbt
+          // the psbt is not being finalized
+          // the psbt is not being broadcasted
+
+          // what is the solution?
+          // add the witness
+          // add the signature
+          // finalize the psbt
+          // broadcast the psbt
+
+
+        let mut input = psbt.unsigned_tx.input[0].clone();
+
 
       input.witness = witness.clone();
 
-      let mut input = psbt.inputs[0].clone();
-      input.witness_utxo = Some(TxOut {
-        script_pubkey: unsigned_commit_tx.output[0].script_pubkey.clone(),
-        value: (unsigned_commit_tx.output[0].value),
-      });
+      // what if we don't add the witness?
+      
+
+
+      psbt.unsigned_tx.input[0] = input;
+      
+        
+
+
+          // what is the problem?
+          // the signature is not being added to the psbt
+          // the witness is not being added to the psbt // is it added now or not? // yes
+          // the psbt is not being finalized
+          // the psbt is not being broadcasted
+
 
       let mut input = psbt.inputs[0].clone();
-      input.non_witness_utxo = Some(unsigned_commit_tx.clone());
+      
 
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_sig = Some(Script::new());
+          // what is the problem?
+          // the signature is not being added to the psbt // is it added now or not? // yes
+          // the witness is not being added to the psbt // is it added now or not? // yes
 
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_witness = Some(witness.clone());
-      //: NonStandardSighashType(104)', src/subcommand/wallet/inscribe.rs:237:99
 
-      let mut input = psbt.inputs[0].clone();
-      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
+// is the following stuff necessary or not? // yes
+      let mut signature_hash = reveal_tx.signature_hash(
+        0,
+        &unsigned_commit_tx.output[0].script_pubkey,
+        SigHashType::SinglePlusAnyoneCanPay as u32,
+      ).to_vec();
+      signature_hash.reverse();
+      signature_hash.push(SigHashType::SinglePlusAnyoneCanPay as u8);
 
+
+
+
+      let sighash = signature_hash.clone();
+      let secp  = Secp256k1::new();
+      let msg = secp256k1::Message::from_slice(&sighash[..]).unwrap();
+      let signature = secp.sign_ecdsa(&msg, &keypair.secret_key());
+      let signature = EcdsaSig { sig : signature , hash_ty : SigHashType::SinglePlusAnyoneCanPay.into() };
+      input.partial_sigs.insert(publickey, signature.into());
+      psbt.inputs[0] = input;
       let mut input = psbt.inputs[0].clone();
-      //lol
-      // should I test it
+      // what if we don't add the partial sigs?
+      // then the psbt is not signed
+      let signature = Base64Display::with_config(&signature.to_vec(), base64::STANDARD).to_string();
+
+      println!("signature: {}", signature.clone() );
+      println!("signature length: {}", signature.clone().len() );
+
+      // is the psbt signed now or not?
       // yes
-      
-      // what if we don't add the witness script?
-      let witness_script = bitcoin::Address::p2wsh(&Script::from(witness.serialize()), bitcoin::Network::Bitcoin).script_pubkey();
-      input.witness_script = Some(witness_script.clone());
-      let witness_script = bitcoin::consensus::encode::serialize(&witness_script);
-      let witness_script = Base64Display::with_config(&witness_script, base64::STANDARD).to_string();
-      
-      let mut input = psbt.inputs[0].clone();
-      // what if we don't add the redeem script?
-      let redeem_script = bitcoin::Address::p2shwpkh(&publickey, bitcoin::Network::Bitcoin).unwrap().script_pubkey();
-      input.redeem_script = Some(redeem_script.clone());
-      let redeem_script = bitcoin::consensus::encode::serialize(&redeem_script);
-      let redeem_script = Base64Display::with_config(&redeem_script, base64::STANDARD).to_string();
-      
-      // what if we don't add the sighash type?
-      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
-      // what if we don't add the partial signature?
-      let partial_sig = bitcoin::consensus::encode::serialize(&signature.to_hex());
-      let partial_sig : EcdsaSig = EcdsaSig::from_slice(&partial_sig).unwrap();
-      
-      input.partial_sigs.insert(publickey, partial_sig);
-      
-      let partial_sig = Base64Display::with_config(&partial_sig.to_vec(), base64::STANDARD).to_string();
+      // so we need to finalize the psbt
+      // what is the error?
+      // error: the transaction was rejected by network rules
+      // 16: mandatory-script-verify-flag-failed (Signature must be zero for failed CHECK(MULTI)SIG operation)
+
+
       
       // what if we don't add the final script sig?
-      let final_script_sig = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&controlblock).unwrap());
-      input.final_script_sig = Some(Script::from(final_script_sig.clone()));
+      let final_script_sig = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.final_script_sig.unwrap()).unwrap());
       let final_script_sig = Base64Display::with_config(&final_script_sig, base64::STANDARD).to_string();
-      
+      println!("final script sig: {}", final_script_sig.clone());
+      println!("final script sig length: {}", final_script_sig.clone().len());
+
       // what if we don't add the final script witness?
-      let final_script_witness = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&witness).unwrap());
-      input.final_script_witness = Some(witness.clone());
-
+      let final_script_witness = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.final_script_witness.unwrap()).unwrap());
       let final_script_witness = Base64Display::with_config(&final_script_witness, base64::STANDARD).to_string();
+      println!("final script witness: {}", final_script_witness.clone());
+      println!("final script witness length: {}", final_script_witness.clone().len());
 
-
-      println!("witness: {}", witness.clone().len());
-
-
-      println!("witness script: {}", witness_script);
-      println!("redeem script: {}", redeem_script);
-      println!("partial sig: {}", partial_sig);
-      println!("final script sig: {}", final_script_sig);
-
-      println!("final script witness: {}", final_script_witness);
-      println!("sighash type: {}", input.clone().sighash_type.unwrap());
-      println!("prevtxs: {}", input.clone().non_witness_utxo.unwrap().txid());
-      println!("signature hash: {}", signature_hash);
-      println!("publickey: {}", publickey);
-      println!("signature: {}", signature.to_hex());
       
-      // before I test this is anythign broken  
       // what if we don't add the witness utxo?
-      let witness_utxo = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&unsigned_commit_tx.output[0]).unwrap());
-      input.witness_utxo = Some(TxOut {
-        script_pubkey: unsigned_commit_tx.output[0].script_pubkey.clone(),
-        value: (unsigned_commit_tx.output[0].value),
-      });
+      let witness_utxo = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.witness_utxo.unwrap()).unwrap());
       let witness_utxo = Base64Display::with_config(&witness_utxo, base64::STANDARD).to_string();
-      println!("witness utxo: {}", witness_utxo);
-      
-
-      // what if we don't add the sighash type?
-      input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
-      let sighash_type = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&input.clone().sighash_type.unwrap()).unwrap());
-      let sighash_type = Base64Display::with_config(&sighash_type, base64::STANDARD).to_string();
-      println!("sighash type: {}", sighash_type);
+      println!("witness utxo: {}", witness_utxo.clone());
+      println!("witness utxo length: {}", witness_utxo.clone().len());
 
       
-      psbt.inputs[0] = input;
+      // what's broken ?
+      // the psbt is not signed
+      // what if we don't add the sighash type to the signature?
+      // then the signature is wrong
+      // what if we don't reverse the signature hash?
 
-      // step 7 - sign the psbt
-      // we need to get the psbt
-      // we have the psbt
-      // we need to get the keypair
-      // we have the keypair
-      // we need to get the prevtxs
-      // we have the prevtxs
-      // we need to get the sighash
-      // we have the sighash
-      // we need to get the signature
-      // we have the signature
-      // we need to get the publickey
-
-
-      // we need to get the psbt
-      // we have the psbt
+      // what do we sign the psbt with 
+      // we sign it with the keypair
+      // so we need to get the keypair
 
 
 
-    
-      let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&psbt), base64::STANDARD) .to_string();
+
     
       // we need to get the keypair
       // we have the keypair
@@ -345,24 +328,90 @@ impl Inscribe {
       // wallet process ?
       // we need to get the sighash
       // we have the sighash
+      // sign with prevtxs? 
+      // we need to get the prevtxs
+      // we have the prevtxs
+let prevtxs = vec![SignRawTransactionInput {
+        txid: unsigned_commit_tx.txid(),
+        vout: 0,
+        script_pub_key: unsigned_commit_tx.output[0].script_pubkey.clone(),
+        amount: Some(Amount::from_sat(unsigned_commit_tx.output[0].value)),
+        redeem_script: None,
+        
+      }];
 
-      let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap(); 
+      // is this necessary?
+      // yes
+      // what if we don't add the prevtxs?
+      // then the psbt is not signed
+
+      // what if we don't add the sighash type to the signature?
+      let signed_psbt = client.
+      sign_raw_transaction_with_key(
+        &psbt.clone().extract_tx(),
+        &[PrivateKey::from_slice(keypair.secret_bytes().as_slice(), Network::Bitcoin).unwrap()],
+        Some(&prevtxs.clone()  ) ,
+        Some(SigHashType::SinglePlusAnyoneCanPay.into())).unwrap();
+
+
       let success = signed_psbt.complete;
       println!("success: {}", success);
-      // step 8 - save the psbt to a file
+      let error = signed_psbt.errors.unwrap_or_default();
 
-      println!("psbt: {}", psbt);
+      println!("error: {}", error[0].error);
+      let hex = signed_psbt.hex;
+      let prettyHex = hex::encode(&hex);
+      println!("hex: {}", prettyHex);
+      let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&hex), base64::STANDARD) .to_string();
+      println!("psbt b64: {}", psbt);
+      println!("psbt hex: {}", prettyHex);
 
+      
+      
+      let psbt: Psbt = bitcoin::consensus::encode::deserialize(&hex).unwrap();
+      println!("psbt vsize {}", psbt.unsigned_tx.vsize());
+      println!("psbt weight {}", psbt.unsigned_tx.get_weight());
+      println!("psbt size {}", psbt.unsigned_tx.get_size());
+      println!("psbt fee {}", Self::calculate_fee(&psbt.unsigned_tx, &utxos) );
+      
 
-      let mut file = File::create("psbt.txt")?;
-      file.write_all( psbt .as_bytes() )?;
+      let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&hex), base64::STANDARD) .to_string();
+
+        // and now the client should be ready to update,
+        // combine
+        // finalize
+        // and broadcast the transaction
+        // step 1. update the psbt
+        // step 2. combine the psbt
+        // step 3. finalize the psbt
+        // step 4. sign the psbt
+        // step 5. broadcast the transaction
+        
+        // when I run this code, will the client be able to update the psbt?
+        // yes
+        // what if we don't add the sighash type to the signature?
+        // then the psbt is not signed
+        // what if we don't add the prevtxs?
+        // then the psbt is not signed
+        // what if we don't add the final script sig?
+        // then the psbt is not signed
+        // what if we don't add the final script witness?
+        
+      let mut file = OpenOptions::new()
+      .write(true)
+      .append(true)
+      .open("psbthex.txt")
+      .unwrap();
+      file.write_all( prettyHex.as_bytes() )?;
+      let mut file = OpenOptions::new()
+      .write(true)
+      .append(true)
+      .open("psbtpsbt.txt")
+      .unwrap();
+      file.write_all( psbt.as_bytes() )?;
       // step 9. broadcast the transaction
 
-      // why insist on a psbt?
-      // we are creating a candy machine 
-      // we need to be able to have people mint these inscriptionss at a later point in time
-      
-      
+     
       
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 Ok(())
