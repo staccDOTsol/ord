@@ -187,8 +187,8 @@ psbt.inputs[0].redeem_script = Some(prevtx.output[0].script_pubkey.clone());
 let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
   txid: prevtx.txid(),
   vout: 0,
-  redeem_script: Some(prevtx.output[0].script_pubkey.clone()),
-  script_pub_key: prevtx.output[0].script_pubkey.clone(),
+  redeem_script: Some(prevtx.output[0].script_pubkey.clone()), // 
+  script_pub_key: prevtx.output[0].script_pubkey.clone(), // 
   amount: Some(Amount:: from_sat(prevtx.output[0].value)),
 } ;
 
@@ -200,6 +200,8 @@ let secret_key = keypair.secret_key();
 let private_key = PrivateKey::from_slice(&secret_key[..], Network::Bitcoin).unwrap();
 let mut tpbst = psbt.clone();
 
+println !("  PSBT: {}", Base64Display::with_config(&bitcoin::consensus::serialize(&psbt), base64::STANDARD));
+
 let signed_psbt = client.sign_raw_transaction_with_key(
   &psbt.extract_tx(),
   &[private_key ],
@@ -210,17 +212,15 @@ let signed_psbt = client.sign_raw_transaction_with_key(
 
 
 let decoded: Transaction = bitcoin::consensus::deserialize(&signed_psbt).unwrap();
-tpbst.unsigned_tx = decoded.clone();
-let signed_psbt = tpbst.clone();
 
 
-println!("  Signed PSBT: {}", Base64Display::with_config(&bitcoin::consensus::serialize(&signed_psbt), base64::STANDARD));
+println!("  Signed PSBT: {}", Base64Display::with_config(&bitcoin::consensus::serialize(&decoded), base64::STANDARD));
 // provided a redeem script for a transaction output that does not need one 
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 
 
 let mut file = File::create("signed_psbt.txt")?;
-file.write_all( Base64Display::with_config(&bitcoin::consensus::serialize(&signed_psbt), base64::STANDARD).to_string().as_bytes())?;
+file.write_all( Base64Display::with_config(&bitcoin::consensus::serialize(&decoded), base64::STANDARD).to_string().as_bytes())?;
 
 
 
