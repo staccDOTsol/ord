@@ -217,7 +217,12 @@ impl Inscribe {
 
         let sig = signature.to_hex();
         let sig = sig.as_bytes();
-        let sig = sig.to_vec();
+        let mut sig = sig.to_vec();
+
+        sig.push(SigHashType::SinglePlusAnyoneCanPay.to_u32() as u8);
+
+        
+
 
         let ecdsasig = EcdsaSig::from_slice(&sig).unwrap();
         
