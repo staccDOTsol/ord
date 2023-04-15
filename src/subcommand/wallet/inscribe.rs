@@ -223,8 +223,9 @@ impl Inscribe {
           sighash_types[i].clone(),
         );
         let mut input = psbt.inputs[i].clone();
+        let single_plus_anyone = 0x81;
+        signatures[i].push( single_plus_anyone ); // 'index out of bounds: the len is 0 but the index is 0', src/subcommand/wallet/inscribe.rs:227:29
 
-        signatures[i].push( sighash_type[0] ); // sighash type
 
         let schnorr_sig = SchnorrSig::from_slice(&signatures[i]).unwrap(); // ivalid sighash type for schnorr
 
