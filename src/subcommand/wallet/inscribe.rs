@@ -198,7 +198,7 @@ let mut previnput: SignRawTransactionInput = SignRawTransactionInput {
 } ;
   // // if I sign the psbt here it works if I use keypair from the reveal transaction
 let keypair = bitcoin::util::key::PrivateKey::from_str  (
-  serde_json::to_string(&recovery_key_pair ).unwrap().as_str()
+  serde_json::to_string(&keypair ).unwrap().as_str()
 ).unwrap();
 let signed_psbt = client.sign_raw_transaction_with_key(
   &psbt.extract_tx(),
