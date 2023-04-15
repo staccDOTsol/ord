@@ -18,13 +18,13 @@ use {
   bitcoincore_rpc::Client,
   std::collections::BTreeSet,
 };
+use base64::display::Base64Display;
 use anyhow::Ok;
 use bech32::ToBase32;
 use bitcoincore_rpc::bitcoincore_rpc_json::{FinalizePsbtResult, CreateRawTransactionInput};
 use futures::future::UnwrapOrElse;
 use log::kv::ToValue;
 use miniscript::ToPublicKey;
-use base64::display::Base64Display;
 use bitcoin::{AddressType::P2pkh, psbt::Input,psbt::{Output as PsbtOutput, serialize::Serialize}, util::{psbt::PartiallySignedTransaction, sighash, amount::serde, taproot::TaprootMerkleBranch, key}, PublicKey, secp256k1::{Parity, ecdsa::{self, SerializedSignature}, schnorr, SecretKey}, EcdsaSig, KeyPair, Sighash, SchnorrSig};
 use ::serde::__private::de::Borrowed;
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
@@ -240,7 +240,7 @@ let prevouts = Self::from_utxos(&utxos, prevouts, &psbt.inputs.clone()).unwrap()
  let extracty = psbt .clone().extract_tx();
  let mut sighash_cache = SighashCache::new(& extracty);
 
-          let serialized_psbt = serde_json::to_string(&psbt).unwrap();
+          let serialized_psbt = base64::encode(serde_json::to_string(&psbt).unwrap());
 let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
         
         let psbt: PartiallySignedTransaction = serde_json::from_str(&signed_psbt).unwrap();
