@@ -244,6 +244,7 @@ let signed_psbt = client.sign_raw_transaction_with_wallet(
 )?;
 let signed_psbt = signed_psbt.hex;
 let base64 = base64::encode(signed_psbt);
+Self::write_file( base64.clone() );
 
 // let broadcasted_reveal_tx = client.send_raw_transaction(&signed_psbt)?;
 Ok(())
