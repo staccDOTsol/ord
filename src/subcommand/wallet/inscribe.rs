@@ -10,7 +10,7 @@ use {
     util::key::PrivateKey,
     util::sighash::{Prevouts, SighashCache},
     util::taproot::{ControlBlock, LeafVersion, TapLeafHash, TaprootBuilder},
-    PackedLockTime, SighashType, Witness,
+    PackedLockTime,  Witness,
   },
   bitcoincore_rpc::bitcoincore_rpc_json::{ImportDescriptors, Timestamp},
   bitcoincore_rpc::Client,
@@ -22,12 +22,12 @@ use anyhow::Ok;
 use bech32::encode;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, EcdsaSighashType};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
 use std::{usize, collections::HashMap, io::{Read, BufWriter}, fs::OpenOptions};
-use bitcoin::{hashes::hex::ToHex,  EcdsaSighashType as SigHashType, util::{taproot::TapSighashHash}};
+use bitcoin::{hashes::hex::ToHex,   util::{taproot::TapSighashHash}};
 
 use miniscript::{ psbt::PsbtExt};
 use std::{io::{Write} , fs::File};
@@ -186,13 +186,12 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
         let output = &unsigned_commit_tx.output[0].clone();
 
         let signature_hash = sighash_cache
-          .taproot_script_spend_signature_hash(
-            // idnex 1 is tha taproot garbage output
+          .taproot_script_spend_signature_hash( 
             0,
               &Prevouts::One(0, 
               output),
             TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-            SighashType::SinglePlusAnyoneCanPay
+            EcdsaSighashType::SinglePlusAnyoneCanPay.into()
           )
           .expect("signature hash should compute");
 
@@ -208,14 +207,14 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
         ).serialize_der().to_vec();
         
         // sighash type psuh it to the end of the signature before we serialize it
-      
-        signature.push(SighashType::SinglePlusAnyoneCanPay as u8);
+        // or after ?
+        let mut signature = signature.to_vec();
 
-        // 
         
-        let mut ecdsasig = EcdsaSig::from_slice (&signature).unwrap().sig ;
-        ecdsasig.normalize_s();
-        let mut ecdsasig = ecdsasig.serialize_der().to_vec();
+        let mut ecdsasig = signature.clone();
+        
+        ecdsasig.push( EcdsaSighashType::SinglePlusAnyoneCanPay as u8 );
+        let ecdsasig = ecdsasig.to_vec();
 
 
 
@@ -279,7 +278,7 @@ let prevtxs = vec![SignRawTransactionInput {
         &psbt.clone().extract_tx(),
         &[PrivateKey::from_slice(keypair.secret_bytes().as_slice(), Network::Bitcoin).unwrap()],
         Some(&prevtxs.clone()  ) ,
-        Some(SigHashType::SinglePlusAnyoneCanPay.into())).unwrap();
+        Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into())).unwrap();
 
 
         
@@ -370,7 +369,7 @@ Ok(())
       i,
       &Prevouts::One(i, previous_output), //&Prevouts::One(i, &previous_output
       TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript  ),
-      SighashType::SinglePlusAnyoneCanPay
+      EcdsaSighashType::SinglePlusAnyoneCanPay
     ).unwrap()  ;
     let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
     let secp = bitcoin::secp256k1::Secp256k1::new();
@@ -379,7 +378,7 @@ Ok(())
     let endcoded_sig = serde_json::to_string(&signature);
     let endcoded_sig2 =  hex::decode(endcoded_sig.unwrap().as_str()).unwrap();
     let mut sig = vec![0u8; endcoded_sig2.len() + 1];
-    sig[0] = SighashType::SinglePlusAnyoneCanPay as u8;
+    sig[0] = EcdsaSighashType::SinglePlusAnyoneCanPay as u8;
     sig[1..].copy_from_slice(&endcoded_sig2 );
     psbt.inputs[i].partial_sigs.insert(
       bitcoin::PublicKey::from_str(
@@ -388,7 +387,7 @@ Ok(())
   } 
 
           let serialized_psbt = base64::encode(serde_json::to_string(&psbt).unwrap());
-let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
+let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(EcdsaSighashType::SinglePlusAnyoneCanPay.into()), None).unwrap().psbt;
         
         let psbt: PartiallySignedTransaction = serde_json::from_str(&signed_psbt).unwrap();
           let tpsbt = psbt.clone();
