@@ -234,28 +234,15 @@ impl Inscribe {
 
       let mut input = psbt.inputs[0].clone();
       input.final_script_witness = Some(witness.clone());
-      let partial_sig = EcdsaSig::from_slice(&witness.clone().iter().nth(1).unwrap().clone()[..]).unwrap();
+      //: NonStandardSighashType(104)', src/subcommand/wallet/inscribe.rs:237:99
 
-      // will this complain about the sighash type?
-      // no
-
-
-      
-      let mut input = psbt.inputs[0].clone();
-      input.partial_sigs.insert(publickey, partial_sig);
-
-
-      
       let mut input = psbt.inputs[0].clone();
       input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
-      let secppubkey = secp256k1::PublicKey::from_slice(&publickey.to_bytes()).unwrap();
-      let keysource = KeySource::from((
-        Fingerprint::from_str("00000000").unwrap(),
-        DerivationPath::from_str("m/0").unwrap() )
-      );
-    input.bip32_derivation.insert(secppubkey, keysource.clone());
 
-
+      let mut input = psbt.inputs[0].clone();
+      //lol
+      // should I test it
+      // yes
       
       // what if we don't add the witness script?
       let witness_script = bitcoin::Address::p2wsh(&Script::from(witness.serialize()), bitcoin::Network::Bitcoin).script_pubkey();
@@ -317,10 +304,6 @@ impl Inscribe {
       let witness_utxo = Base64Display::with_config(&witness_utxo, base64::STANDARD).to_string();
       println!("witness utxo: {}", witness_utxo);
       
-      // what if we don't add the bip32 derivation?
-      let bip32_derivation = bitcoin::consensus::encode::serialize(&serde_json::to_vec(&keysource).unwrap());
-      let bip32_derivation = Base64Display::with_config(&bip32_derivation, base64::STANDARD).to_string();
-      println!("bip32 derivation: {}", bip32_derivation);
 
       // what if we don't add the sighash type?
       input.sighash_type = Some(SigHashType::SinglePlusAnyoneCanPay.into());
@@ -362,7 +345,7 @@ impl Inscribe {
       // wallet process ?
       // we need to get the sighash
       // we have the sighash
-      
+
       let signed_psbt = client.wallet_process_psbt(&psbt, Some(true), Some(SigHashType::SinglePlusAnyoneCanPay.into()), None).unwrap(); 
       let success = signed_psbt.complete;
       println!("success: {}", success);
