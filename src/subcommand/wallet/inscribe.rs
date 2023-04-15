@@ -228,6 +228,12 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
       );
       psbt.inputs[0] = input.clone();
 
+      // what if we don't add the final script sig?
+      let mut input = psbt.inputs[0].clone();
+      input.final_script_sig = Some(reveal_script.clone());
+      psbt.inputs[0] = input.clone();
+        
+
       let mut input = psbt.inputs[0].clone();
       let witness = sighash_cache
       .witness_mut(0)
@@ -238,6 +244,8 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
 
       input.final_script_witness = Some(  witness.clone() );
       psbt.inputs[0] = input.clone();
+
+
 
         let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
         
@@ -308,6 +316,13 @@ let prevtxs = vec![SignRawTransactionInput {
       println!("psbt weight {}", psbt.unsigned_tx.get_weight());
       println!("psbt size {}", psbt.unsigned_tx.get_size());
       println!("psbt fee {}", Self::calculate_fee(&psbt.unsigned_tx, &utxos) );
+
+      println!("psbt: {}", psbt.clone().extract_tx().txid() );
+      println!("estimated fee: {}", Self::calculate_fee(&psbt.clone().extract_tx(), &utxos) );
+      println!("estimated fees for commit and reveal: {} {} "
+      , Self::calculate_fee(&unsigned_commit_tx, &utxos)
+      , Self::calculate_fee(&reveal_tx, &utxos) );
+
       
 
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&hex), base64::STANDARD) .to_string();
