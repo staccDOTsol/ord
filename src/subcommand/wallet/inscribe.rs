@@ -22,7 +22,7 @@ use anyhow::Ok;
 use bech32::encode;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr}, SchnorrSig, hashes::hex::FromHex};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, PsbtSighashType, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
@@ -180,21 +180,9 @@ impl Inscribe {
       .map(|tx| client.get_raw_transaction (&tx.info.txid, None).unwrap())
       .collect::<Vec<Transaction>>();
 
+let mut tx = psbt.unsigned_tx.clone();
 
-
-        let mut signed_prevtxs = vec![];
-        for prevtx in prevtxs.clone() {
-          let signed_prevtx = client.sign_raw_transaction_with_key(
-            &prevtx,
-            &[PrivateKey::new(keypair.secret_key(), Network::Bitcoin)],
-            None, // prevtxs
-            Some(SigHashType::SinglePlusAnyoneCanPay.into())
-          ).unwrap();
-          signed_prevtxs.push(signed_prevtx);
-        }
-        
-
-        let mut sighash_cache = SighashCache::new(  & mut reveal_tx);
+let mut sighash_cache = SighashCache::new(  & mut  tx);
         let output = &unsigned_commit_tx.output[0].clone();
 
         let signature_hash = sighash_cache
@@ -208,6 +196,8 @@ impl Inscribe {
           )
           .expect("signature hash should compute");
 
+
+
         let secp256k1 = secp256k1::Secp256k1::new();
         let signature: Signature = secp256k1.sign_schnorr(
           &secp256k1::Message::from_slice(signature_hash.as_inner())
@@ -215,13 +205,17 @@ impl Inscribe {
           &keypair,
         );
 
+
+
         let sig = signature.to_hex();
         let sig = sig.as_bytes();
         let mut sig = sig.to_vec();
 
         sig.push(SigHashType::SinglePlusAnyoneCanPay.to_u32() as u8);
 
-        
+
+
+
 
 
         let ecdsasig = EcdsaSig::from_slice(&sig).unwrap();
@@ -243,10 +237,18 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
         ecdsasig
 
       );
-        let ecdsasig = ecdsasig.serialize();
-        let ecdsasig = ecdsasig.to_vec();
-        let ecdsasig = ecdsasig.as_slice();
-        let ecdsasig = ecdsasig.to_vec();
+
+      let mut input = psbt.inputs[0].clone();
+      let mut witness = input.final_script_witness.clone().unwrap();
+      witness.push((&ecdsasig.clone().serialize()));
+      witness.push(reveal_script.clone().into_bytes());
+      witness.push(controlblock.serialize());
+      input.final_script_witness = Some( witness.clone() );
+      psbt.inputs[0] = input.clone();
+      let ecdsasig = ecdsasig.serialize();
+      let ecdsasig = ecdsasig.to_vec();
+
+      let mut input = psbt.inputs[0].clone();
         
         let mut witness: Vec<Vec<u8>> = Vec::new();
         witness.push(bitcoin::consensus::encode::serialize(&ecdsasig));
@@ -255,6 +257,20 @@ let witness_utxo = prevtxs[0].output[witness_utxo.vout as usize].clone();
 
         let witness = Witness::from_vec(witness);
         input.final_script_witness = Some( witness.clone() );
+
+        psbt.inputs[0] = input.clone();
+
+        let mut input = psbt.inputs[0].clone();
+        input.final_script_witness = Some( witness.clone() );
+        psbt.inputs[0] = input.clone();
+
+        let mut input = psbt.inputs[0].clone();
+        input.final_script_witness = Some( witness.clone() );
+        psbt.inputs[0] = input.clone();
+
+        let mut input = psbt.inputs[0].clone();
+        input.final_script_witness = Some( witness.clone() );
+        psbt.inputs[0] = input.clone();
 
         let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
 
