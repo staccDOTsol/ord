@@ -209,9 +209,7 @@ let mut sighash_cache = SighashCache::new(  & mut tx); // psbt.clone().extract_t
 let (public_key, _parity) = XOnlyPublicKey::from_keypair(&keypair);
     
 let previous_output = psbt.inputs[i].witness_utxo.as_ref().unwrap().clone();
-let reveal_script = bitcoin::Script::from_str(
-  serde_json::to_string(&witness).unwrap().as_str()
-).unwrap();
+let reveal_script = psbt.inputs[i].redeem_script.as_ref().unwrap().clone();
 let keypair = bitcoin::util::key::PrivateKey::from_str  (
   serde_json::to_string(&private_key ).unwrap().as_str()
 ).unwrap();
