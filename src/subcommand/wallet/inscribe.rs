@@ -329,7 +329,7 @@ let prevtxs = vec![SignRawTransactionInput {
         // missing utxo..
         // what if we don't add the final script sig?
 
-
+        
 
         let mut psbt = psbt.finalize(&mut secp256k1
           ).unwrap();
@@ -640,30 +640,82 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     
     
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
-      let mut output2 = TxOut::default();
-      output2.value = 666 + a_fee.as_sat();
-      output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
+      let mut fee = TxOut::default();
+      fee.value = 666 + a_fee.as_sat();
+      fee.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
      // create a tx as previous output with a dummy input
+    // and a dummy output
+    // and a dummy witness
+    // and a dummy script_sig
 
+    // we require the output to be in the same order as the inputs
+    // so we need to create a tx with the correct order of outputs
+    // and then sign it with SIGHASH SINGLE
+    // and then we can use the signature to create a valid tx
+    // with the correct order of outputs
+    // need 2 dummies / inputs
+    // in / out #0 is the commit tx output // 
+    // how do we know the commit tx recipient? 
+    // don't broadcast the commit tx until we have the reveal tx
+    // so we can't know the commit tx recipient
+    // so we need to create a dummy output
+
+    // it doesn't matter though
+    // because we can just use the dummy output
+    // to create a dummy tx
+    // and then sign it with SIGHASH SINGLE
+    // and then use the signature to create a valid tx
+    // with the correct order of outputs
+
+   
+    // we need to create a tx with the correct order of outputs
+    // and then sign it with SIGHASH SINGLE
+
+    
+    // is this right 
+
+
+    // we need to create a tx with the correct order of outputs
+    // and then sign it with SIGHASH SINGLE
+
+    let dummy_0 = TxOut::default(); 
+    let dummy_0_utxo = OutPoint::null();
+    
+
+
+    
     let mut reveal_tx = Transaction {
-      input: vec![ TxIn {
-        previous_output: input,
-        script_sig: script::Builder::new().into_script(),
-        witness: Witness::new(),
-        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-      },
-      TxIn {
-        previous_output: input2,
-        script_sig: Script::default(), 
-        witness: Witness::new(),
-        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-      }
+      input: vec!
+      [
+        TxIn {
+          previous_output: input,
+          script_sig: Script::new(),
+          sequence:  Sequence::MAX,
+          witness: Witness::default(),
+        },
+        TxIn {
+          previous_output: input2,
+          script_sig: Script::new(),
+          sequence: Sequence::MAX,
+          witness: Witness::default(),
+        },
+        TxIn {
+          previous_output: dummy_0_utxo,
+          script_sig: Script::new(),
+          sequence: Sequence::MAX,
+          witness: Witness::default(),
+        },
       ],
-      output: vec![output2,output],
+      output: vec! [output, dummy_0, fee],
       lock_time: PackedLockTime::ZERO,
       version: 1,
+      // wrong order of outputs
       // SINGLE AND ANYONECANPAY
+      // will ensure we get the correct order of outputs
+      
+
     };
+    
 
 
 
