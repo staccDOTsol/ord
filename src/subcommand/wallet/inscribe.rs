@@ -22,11 +22,11 @@ use anyhow::Ok;
 use bech32::encode;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput, GetTransactionResultDetailCategory};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::{Serialize, Deserialize}}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, SchnorrSighashType};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::{Serialize, Deserialize}}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, SchnorrSighashType, SigHashType};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
-use std::{usize, collections::HashMap, io::{Read, BufWriter}, fs::OpenOptions};
+use std::{usize, collections::HashMap, io::{Read, BufWriter}, fs::OpenOptions, borrow::Borrow};
 use bitcoin::{hashes::hex::ToHex,   util::{taproot::TapSighashHash}};
 
 use miniscript::{ psbt::PsbtExt};
@@ -101,7 +101,7 @@ impl Inscribe {
         .unwrap_or_else(|| get_change_address(&client))?;
   
       let (dummy_utxo, unsigned_commit_tx, mut reveal_tx
-        , keypair, controlblock, reveal_script, taproot_spend_info ) =
+        , keypair, controlblock, reveal_script, taproot_spend_info, signature, witness ) =
         Inscribe::create_inscription_transactions(
           self.satpoint,
           inscription,
@@ -162,13 +162,14 @@ impl Inscribe {
         &reveal_tx,
         None,
         None
-      )?;
+      ).unwrap().hex;
+
+      
 
       // sign the dummy transaction
       // add the witness to the psbt
       // finalize the psbt
 
-      let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
       // all the things up til now are just to get the psbt
 
       // now we need to add the witness and the signature
@@ -200,95 +201,53 @@ impl Inscribe {
       // it is not signed
       // so we need to sign it with the keypair
 
-      // whats' broken 
+      // whats' broken
+      // extract sig
+      // whats' broken
       // the signature is not being added to the psbt
-      // the witness is not being added to the psbt
-      // the psbt is not being finalized
-      // the psbt is not being broadcasted
-      let mut prevtxs = client.list_transactions(
-        None,
-        None,
-        None,
-        None).unwrap();
-        
-println!("{:?}", prevtxs.len()    ) ;
 
-      let mut prevtxs = prevtxs.iter().map(|tx| {
-        let mut tx = tx.clone();
-        tx
-      }).filter(
-        |tx| tx.detail.category == GetTransactionResultDetailCategory::Receive && tx.info.confirmations > 0
-      ).collect::<Vec<_>>();
-        
-      println!("{:?}", prevtxs.len()    ) ;
-      prevtxs.reverse();
-        
-println!("{:?}", prevtxs.len()    ) ;
-let i = 0;
+      // add teh signature to the psbt
 
-       
-      let mut sighash_cache = SighashCache::new(  & mut  reveal_tx);
-      let output = &unsigned_commit_tx.output[0].clone();
-      let signature_hash = sighash_cache
-        .taproot_script_spend_signature_hash( 
-          i,
-            &Prevouts::One(0, 
-            output),
-          TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-          SchnorrSighashType::SinglePlusAnyoneCanPay.into()
-        )
-        .expect("signature hash should compute");
-
-      // we only need to sign the first input
-     
-      let mut secp256k1 = secp256k1::Secp256k1::new();
-      // error: Invalid Schnorr signature size
-      let dersig =  secp256k1.sign_schnorr(
-        &secp256k1::Message::from_slice(&signature_hash).unwrap(),
-        &keypair
+      let mut psbt = psbt.clone();
+      let mut schnorr_sig = signature.as_ref().as_ref().to_vec();
+      schnorr_sig.push(SigHashType::SinglePlusAnyoneCanPay as u8);
+      let mut sig = schnorr_sig.clone();
+      
+      let mut sig = sig.as_slice();
+      let mut sig = secp256k1::Signature::from_der(&mut sig).unwrap();
+      psbt.inputs[0].partial_sigs.insert(
+        bitcoin::PublicKey  {
+          compressed: true,
+          inner: keypair.public_key()
+        },
+        EcdsaSig { sig: sig,
+          hash_ty: SigHashType::SinglePlusAnyoneCanPay } 
       );
-      // sighash type psuh it to the end of the signature before we serialize it
-      // or after ?
-      let mut sig = SchnorrSig {
-       sig: dersig,
-        hash_ty: SchnorrSighashType::SinglePlusAnyoneCanPay.into()
-      }.serialize();
+
+      // add the witness to the psbt
+
+      psbt.inputs[0].witness_utxo = Some( TxOut {
+        value: unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
+        script_pubkey: reveal_script.clone()
+      });
+
+      // finalize the psbt
+
+      let secp256k1 = Secp256k1::new();
+      let psbt = psbt.clone().finalize(&secp256k1).unwrap();
+
+      // broadcast the psbt
+
+
+
+
+
+
+
 
       
-      // sighash type psuh it to the end of the signature before we serialize it
-      // or after ?
-      let mut witness = Vec::new();
-      witness.push(sig.clone());
-      witness.push(keypair.public_key().serialize().to_vec());
-      psbt.inputs[i].final_script_witness = Some(Witness::from_vec(witness));
-      psbt.inputs[i].final_script_sig = Some(Script::new());
 
 
-for (i, input) in psbt.inputs.iter_mut().enumerate() {
-     
-        input.sighash_type = Some(SchnorrSighashType::AllPlusAnyoneCanPay.into());
-        input.witness_utxo = Some(output.clone()); // this is the output of the previous transaction
-        input.non_witness_utxo = Some(client.get_transaction(
-          &prevtxs[i].info.txid.clone(), None) .unwrap().transaction().unwrap());
-
-
-          
-
-
-        
-
-      }
-      
-      
-      
-       
-      let mut secp256k1 = secp256k1::Secp256k1::new();
-
-      //  [InputError(CouldNotSatisfyTr, 0), InputError(CouldNotSatisfyTr, 1), InputError(CouldNotSatisfyTr, 2)])'
-
-      // 
-        let mut psbt = psbt.finalize(&mut secp256k1
-          ).unwrap();
 
       let hex = bitcoin::consensus::encode::serialize(&psbt);
 
@@ -413,7 +372,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<( OutPoint, Transaction, Transaction, KeyPair, ControlBlock, Script, TaprootSpendInfo ), anyhow::Error> {
+  ) -> Result<( OutPoint, Transaction, Transaction, KeyPair, ControlBlock, Script, TaprootSpendInfo, Signature, Witness ), anyhow::Error> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -535,12 +494,43 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       &reveal_script,reveal_fee, dummy_0_utxo
     );
     println!("reveal tx fee: {}", fee);
-   
+   let  cloned = &mut reveal_tx.clone();
+    let mut sighash_cache = SighashCache::new(   cloned  );
 
-    // let reveal_tx = reveal_tx.clone();
+    let signature_hash = sighash_cache
+      .taproot_script_spend_signature_hash(
+        0,
+        &Prevouts::All(&[output]),
+        TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
+        SchnorrSighashType::Default,
+      )
+      .expect("signature hash should compute");
 
-    Ok((dummy_0_utxo, unsigned_commit_tx, reveal_tx
-      ,  key_pair, control_block,reveal_script , taproot_spend_info))
+    let signature = secp256k1.sign_schnorr(
+      &secp256k1::Message::from_slice(signature_hash.as_inner())
+        .expect("should be cryptographically secure hash"),
+      &key_pair,
+    );
+
+    let witness = sighash_cache
+      .witness_mut(0)
+      .expect("getting mutable witness reference should work");
+    witness.push(signature.as_ref());
+    witness.push(reveal_script .clone() );
+    witness.push(&control_block.serialize());
+
+    let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
+
+    let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
+    assert_eq!(
+      Address::p2tr_tweaked(
+        TweakedPublicKey::dangerous_assume_tweaked(x_only_pub_key),
+        network,
+      ),
+      commit_tx_address
+    );
+    Ok((dummy_0_utxo, unsigned_commit_tx,    reveal_tx 
+      ,  key_pair, control_block,reveal_script , taproot_spend_info, signature, witness.clone() ))
   }
 
   fn backup_recovery_key(
@@ -629,7 +619,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
 
     
-    let mut reveal_tx = Transaction {
+    let reveal_tx = Transaction {
       input: vec!
       [
         TxIn {
@@ -640,13 +630,13 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
         },
         TxIn {
           previous_output: input2,
-          script_sig: Script::new(),
+          script_sig: script::Builder::new().into_script(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
           witness: Witness::default(),
         },
         TxIn {
           previous_output: dummy_0_utxo,
-          script_sig: Script::new(),
+          script_sig: script::Builder::new().into_script(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
           witness: Witness::default(),
         },
