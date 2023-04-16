@@ -221,7 +221,7 @@ impl Inscribe {
         None,
         None).unwrap();
         
-
+println!("{:?}", prevtxs.len()    ) ;
 
       let mut prevtxs = prevtxs.iter().map(|tx| {
         let mut tx = tx.clone();
@@ -229,7 +229,11 @@ impl Inscribe {
       }).filter(
         |tx| tx.detail.category == GetTransactionResultDetailCategory::Receive && tx.info.confirmations > 0
       ).collect::<Vec<_>>();
+        
+      println!("{:?}", prevtxs.len()    ) ;
       prevtxs.reverse();
+        
+println!("{:?}", prevtxs.len()    ) ;
 let i = 0;
 
        
