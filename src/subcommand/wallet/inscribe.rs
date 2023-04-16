@@ -532,6 +532,8 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
     let commit_tx_address = Address::p2tr_tweaked(taproot_spend_info.output_key(), network);
     println!("commit tx address: {}", commit_tx_address);
+   
+    
     let (_, _, reveal_fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -543,6 +545,8 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       },
       &reveal_script,
       Amount::ZERO,
+      OutPoint::null(),
+
     );
 
     let unsigned_commit_tx = TransactionBuilder::build_transaction_with_value(
@@ -572,7 +576,13 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     .map(|outpoint| *outpoint)
     .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))?;
     
-
+    let dummy_0_utxo = utxos
+    .keys()
+    .find(|outpoint| !inscribed_utxos.contains(outpoint))
+    .map(|outpoint| *outpoint)
+    .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))?;
+  
+    
 
 
     let ( mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
@@ -587,7 +597,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
         script_pubkey:  destination.script_pubkey(),
         value: 0
       },
-      &reveal_script,reveal_fee
+      &reveal_script,reveal_fee, dummy_0_utxo
     );
     println!("reveal tx fee: {}", fee);
    
@@ -636,6 +646,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     output: TxOut,
     script: &Script,
     a_fee: Amount,
+    dummy_0_utxo: OutPoint,
   ) -> (Transaction, Vec<Vec<u8>> , Amount) {
     
     
@@ -679,7 +690,6 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     // and then sign it with SIGHASH SINGLE
 
     let dummy_0 = TxOut::default(); 
-    let dummy_0_utxo = OutPoint::null();
     
 
 
