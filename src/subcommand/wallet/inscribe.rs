@@ -156,6 +156,8 @@ impl Inscribe {
         None
 
       )?;
+
+      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
       let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
         &reveal_tx,
         None,
@@ -251,7 +253,7 @@ let i = 0;
        sig: dersig,
         hash_ty: SchnorrSighashType::SinglePlusAnyoneCanPay.into()
       }.serialize();
-      
+
       
       // sighash type psuh it to the end of the signature before we serialize it
       // or after ?
@@ -282,7 +284,9 @@ for (i, input) in psbt.inputs.iter_mut().enumerate() {
        
       let mut secp256k1 = secp256k1::Secp256k1::new();
 
-      
+      //  [InputError(CouldNotSatisfyTr, 0), InputError(CouldNotSatisfyTr, 1), InputError(CouldNotSatisfyTr, 2)])'
+
+      // 
         let mut psbt = psbt.finalize(&mut secp256k1
           ).unwrap();
 
