@@ -157,7 +157,7 @@ impl Inscribe {
 
       )?;
 
-      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
+      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;  
       let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
         &reveal_tx,
         None,
@@ -634,20 +634,20 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       [
         TxIn {
           previous_output: input,
-          script_sig: Script::new(),
-          sequence:  Sequence::MAX,
-          witness: Witness::default(),
+          script_sig: script::Builder::new().into_script(),
+          witness: Witness::new(),
+          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         },
         TxIn {
           previous_output: input2,
           script_sig: Script::new(),
-          sequence: Sequence::MAX,
+          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
           witness: Witness::default(),
         },
         TxIn {
           previous_output: dummy_0_utxo,
           script_sig: Script::new(),
-          sequence: Sequence::MAX,
+          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
           witness: Witness::default(),
         },
       ],
