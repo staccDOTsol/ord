@@ -312,6 +312,22 @@ let prevtxs = vec![SignRawTransactionInput {
        ( bitcoin::util::bip32::Fingerprint::default(),
         DerivationPath::default() )       );
 
+        // clear all finalied inputs other than finalSriptWitness 
+        // and sighash type
+
+      let mut input = psbt.inputs[0].clone();
+      input.final_script_sig = None;
+
+      input.final_script_witness = Some(  witness.clone() );
+      input.sighash_type = Some(SchnorrSighashType::SinglePlusAnyoneCanPay.into());
+      
+      input.redeem_script = None;
+      input.witness_script = None;
+      input.bip32_derivation.clear();
+        
+
+          
+
       psbt.inputs[0] = input.clone();
 
       let hex = bitcoin::consensus::encode::serialize(&psbt);
@@ -519,7 +535,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       OutPoint::null(),
       TxOut {
         script_pubkey: destination.script_pubkey(),
-        value: 0,
+        value: 666
       },
       &reveal_script,
       Amount::ZERO,
@@ -546,13 +562,12 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     .map(|satpoint| satpoint.outpoint)
     .collect::<BTreeSet<OutPoint>>();
 
-      let dummy_utxo = utxos
+      let mut dummy_utxo = utxos
         .keys()
         .find(|outpoint| !inscribed_utxos.contains(outpoint))
         
         .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))
         .unwrap();
-
     let ( mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -563,10 +578,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       *dummy_utxo ,
       TxOut {
         script_pubkey:  destination.script_pubkey(),
-        value: output.value, // TODO: subtract modest portion of fee
-        // good thing we alredy call reveal twice   
-        // we shouold fix the guess fees function
-
+        value: 0
       },
       &reveal_script,reveal_fee
     );
@@ -622,7 +634,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     
       // prepend an output with  an ask for 500 000 sats. SIGHASH SINGLE will ensure we get it !
       let mut output2 = TxOut::default();
-      output2.value = 6666 + a_fee.as_sat();
+      output2.value = 666 + a_fee.as_sat();
       output2.script_pubkey = Address::from_str("bc1pzjhmz2egst0etq0r6050m32a585nzwmhxjx23txqdyrwr2p83dwqxzj908").unwrap().script_pubkey();
      // create a tx as previous output with a dummy input
 
@@ -635,7 +647,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       },
       TxIn {
         previous_output: input2,
-        script_sig: script::Builder::new().into_script(),
+        script_sig: Script::default(), 
         witness: Witness::new(),
         sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
       }
