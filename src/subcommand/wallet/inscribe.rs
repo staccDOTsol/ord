@@ -221,7 +221,7 @@ impl Inscribe {
         None,
         None).unwrap();
         
-
+//Odd number of digits
 
       let mut prevtxs = prevtxs.iter().map(|tx| {
         let mut tx = tx.clone();
