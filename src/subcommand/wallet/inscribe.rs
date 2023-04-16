@@ -156,9 +156,9 @@ impl Inscribe {
 
       )?;
 
-      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
-      let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
-      println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
+//      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
+  //    let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
+   //   println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
     
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
       // all the things up til now are just to get the psbt
@@ -712,7 +712,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       // wrong order of outputs
       // SINGLE AND ANYONECANPAY
       // will ensure we get the correct order of outputs
-      
+
 
     };
     
