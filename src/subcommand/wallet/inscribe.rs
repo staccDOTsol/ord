@@ -247,13 +247,12 @@ let i = 0;
       );
       // sighash type psuh it to the end of the signature before we serialize it
       // or after ?
-      let mut signature = ( secp256k1::schnorr::Signature::to_hex(&dersig) ).as_bytes().to_vec();
-      let mut sighash_type = 0x81u8;
-      let mut sig = signature.clone();
-      let mut sig = SchnorrSig::deserialize(&sig).unwrap();
-      let mut sig = SchnorrSig::serialize(&sig).to_vec();
-      sig.push(sighash_type);
-
+      let mut sig = SchnorrSig {
+       sig: dersig,
+        hash_ty: SchnorrSighashType::SinglePlusAnyoneCanPay.into()
+      }.serialize();
+      
+      
       // sighash type psuh it to the end of the signature before we serialize it
       // or after ?
       let mut witness = Vec::new();
