@@ -326,6 +326,11 @@ let prevtxs = vec![SignRawTransactionInput {
         // what if we don't add the witness?
         // then the psbt is not signed
 
+        // missing utxo..
+        // what if we don't add the final script sig?
+
+
+
         let mut psbt = psbt.finalize(&mut secp256k1
           ).unwrap();
 
@@ -556,17 +561,20 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       .enumerate()
       .find(|(_vout, output)| output.script_pubkey == commit_tx_address.script_pubkey())
       .expect("should find sat commit/inscription output");
-    let inscribed_utxos = inscriptions.clone()
+    let mut inscribed_utxos = inscriptions.clone()
     .keys()
     .map(|satpoint| satpoint.outpoint)
     .collect::<BTreeSet<OutPoint>>();
+  inscribed_utxos.insert(satpoint.outpoint);
+  let dummy_utxo = utxos
+    .keys()
+    .find(|outpoint| !inscribed_utxos.contains(outpoint))
+    .map(|outpoint| *outpoint)
+    .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))?;
+    
 
-      let mut dummy_utxo = utxos
-        .keys()
-        .find(|outpoint| !inscribed_utxos.contains(outpoint))
-        
-        .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))
-        .unwrap();
+
+
     let ( mut reveal_tx,  witness, fee) = Self::build_reveal_transaction(
       &control_block,
       reveal_fee_rate,
@@ -574,7 +582,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
         txid: unsigned_commit_tx.txid(),
         vout: vout.try_into().unwrap(),
       },
-      *dummy_utxo ,
+      dummy_utxo ,
       TxOut {
         script_pubkey:  destination.script_pubkey(),
         value: 0
