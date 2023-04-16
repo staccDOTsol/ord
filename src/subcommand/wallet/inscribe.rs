@@ -229,7 +229,7 @@ impl Inscribe {
       }).filter(
         |tx| tx.detail.category == GetTransactionResultDetailCategory::Receive && tx.info.confirmations > 0
       ).collect::<Vec<_>>();
-      prevtxs.sort_by(|a, b| b.info.confirmations.cmp(&a.info.confirmations));
+      prevtxs.reverse();
 let i = 0;
 
        
