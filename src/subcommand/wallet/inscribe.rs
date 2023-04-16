@@ -22,7 +22,7 @@ use anyhow::Ok;
 use bech32::encode;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::Serialize}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, SchnorrSighashType};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::{Serialize, Deserialize}}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, SchnorrSighashType};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
@@ -156,6 +156,48 @@ impl Inscribe {
 
       )?;
 
+      let signed_commit_tx = signed_commit_tx.hex;
+      let signed_commit_tx: Transaction = consensus::deserialize(&hex::decode(&signed_commit_tx)?)?;
+      let signed_commit_tx = signed_commit_tx.txid();
+      println!("Signed commit transaction: {}", signed_commit_tx);
+
+      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
+        &reveal_tx,
+        None,
+        None
+      )?;
+
+      let signed_reveal_tx = signed_reveal_tx.hex;
+      let signed_reveal_tx: Transaction = consensus::deserialize(&hex::decode(&signed_reveal_tx)?)?;
+      let signed_reveal_tx = signed_reveal_tx.txid();
+      println!("Signed reveal transaction: {}", signed_reveal_tx);
+
+
+      // sign the dummy transaction
+      // add the witness to the psbt
+      // finalize the psbt
+
+      let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
+      // all the things up til now are just to get the psbt
+
+      // now we need to add the witness and the signature
+
+      // is revealtx signed already or not?
+
+      // it is not signed
+
+      // so we need to sign it with the keypair
+
+      // whats' broken
+
+      // the signature is not being added to the psbt
+
+      // the witness is not being added to the psbt
+
+      // the psbt is not being finalized
+
+
+
 //      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
   //    let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
    //   println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
@@ -172,165 +214,63 @@ impl Inscribe {
       // the witness is not being added to the psbt
       // the psbt is not being finalized
       // the psbt is not being broadcasted
-    
-      let mut prevtxs = client.list_transactions(None, Some(1000), None, None ).unwrap()
-      .iter()
-      
-      .filter(|tx| tx.info.txid == psbt.unsigned_tx.input[0].previous_output.txid)
-      .map(|tx| client.get_raw_transaction (&tx.info.txid, None).unwrap())
-      .collect::<Vec<Transaction>>();
+      let mut prevtxs = client.list_transactions(
+        None,
+        None,
+        None,
+        None).unwrap();
+        
 
-let mut tx = psbt.unsigned_tx.clone();
 
-let mut sighash_cache = SighashCache::new(  & mut  tx);
+      let mut prevtxs = prevtxs.iter().map(|tx| {
+        let mut tx = tx.clone();
+        tx
+      }).collect::<Vec<_>>();
+for (i, input) in psbt.inputs.iter_mut().enumerate() {
+        let mut sighash_cache = SighashCache::new(  & mut  reveal_tx);
         let output = &unsigned_commit_tx.output[0].clone();
-
         let signature_hash = sighash_cache
           .taproot_script_spend_signature_hash( 
-            0,
+            i,
               &Prevouts::One(0, 
               output),
             TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
             SchnorrSighashType::SinglePlusAnyoneCanPay.into()
           )
           .expect("signature hash should compute");
-
-
-
+       
         let mut secp256k1 = secp256k1::Secp256k1::new();
         // error: Invalid Schnorr signature size
-
-          
         let dersig =  secp256k1.sign_schnorr(
-          &Message::from_slice(&signature_hash[..]).unwrap(),
-          &keypair 
-          // noncedata?   
-
-        ) ;
-        
+          &secp256k1::Message::from_slice(&signature_hash).unwrap(),
+          &keypair
+        );
         // sighash type psuh it to the end of the signature before we serialize it
         // or after ?
         let mut signature = ( secp256k1::schnorr::Signature::to_hex(&dersig) ).as_bytes().to_vec();
-       
-
-        
-        let mut ecdsasig = signature.clone();
-        
-        ecdsasig.push( SchnorrSighashType::SinglePlusAnyoneCanPay as u8 );
-        let ecdsasig = ecdsasig.to_vec();
-
-
-
-      // what if we don't add the final script sig?
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_sig = Some(reveal_script.clone());
-      psbt.inputs[0] = input.clone();
-        
-
-      let mut input = psbt.inputs[0].clone();
-      let witness = sighash_cache
-      .witness_mut(0)
-      .expect("getting mutable witness reference should work");
+        let mut sighash_type = 0x81u8;
+        let mut sig = signature.clone();
+        sig.push(sighash_type);
+        let mut sig = SchnorrSig::deserialize(&sig).unwrap();
+        let mut sig = SchnorrSig::serialize(&sig).to_vec();
+        // sighash type psuh it to the end of the signature before we serialize it
+        // or after ?
+        let mut witness = Vec::new();
+        witness.push(sig.clone());
+        witness.push(keypair.public_key().serialize().to_vec());
+        input.final_script_witness = Some(Witness::from_vec(witness));
+        input.final_script_sig = Some(Script::new());
+        input.witness_utxo = Some(output.clone());
+        input.witness_script = Some(reveal_script.clone());
+        input.redeem_script = Some(reveal_script.clone());
+      }
       
-      witness.push(signature.clone());
-      witness.push(reveal_script.clone().into_bytes());
-      witness.push(&controlblock.serialize() ); 
+      
+      
+       
+      let mut secp256k1 = secp256k1::Secp256k1::new();
 
-      input.final_script_witness = Some(  witness.clone() );
-      psbt.inputs[0] = input.clone();
-
-
-
-        let recovery_key_pair = keypair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
-        
-
-
-
-
-
-        if !self.no_backup {
-          Inscribe::backup_recovery_key(&client, recovery_key_pair,  Network::Bitcoin); 
-        }
-
-        // why is the signature not being added to the psbt?
-        
-              let signature = Base64Display::with_config(&signature.to_vec(), base64::STANDARD).to_string();
-        
-              println!("signature: {}", signature.clone() );
-              println!("signature length: {}", signature.clone().len() );
-              
-              let mut input = psbt.inputs[0].clone();
-        
-let prevtxs = vec![SignRawTransactionInput {
-        txid: unsigned_commit_tx.txid(),
-        vout: 0,
-        script_pub_key: unsigned_commit_tx.output[0].script_pubkey.clone(),
-        amount: Some(Amount::from_sat(unsigned_commit_tx.output[0].value)),
-        redeem_script: None,
-        
-      }];
-
-      // what if we don't add the prevtxs?
-      // then the psbt is not signed
-
-      // what if we don't add the sighash type to the signature?
-     
-      // what if we don't add the witness?
-      // then the psbt is not signed
-
-      // what if we don't add the final script sig?
-      // then the psbt is not signed
-
-      psbt.inputs[0].witness_utxo = Some( TxOut {
-        value: unsigned_commit_tx.output[0].value,
-        script_pubkey: unsigned_commit_tx.output[0].script_pubkey.clone()
-      });
-
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_sig = Some(reveal_script.clone());
-      psbt.inputs[0] = input.clone();
-
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_witness = Some(  witness.clone() );
-      psbt.inputs[0] = input.clone();
-
-      let mut input = psbt.inputs[0].clone();
-      input.sighash_type = Some(SchnorrSighashType::SinglePlusAnyoneCanPay.into());
-      psbt.inputs[0] = input.clone();
-
-      let mut input = psbt.inputs[0].clone();
-      input.redeem_script = Some(reveal_script.clone());
-      psbt.inputs[0] = input.clone();
-
-      let mut input = psbt.inputs[0].clone();
-      input.witness_script = Some(reveal_script.clone());
-      psbt.inputs[0] = input.clone();
-
-      let mut input = psbt.inputs[0].clone();
-      input.bip32_derivation.insert(
-        keypair.public_key() ,
-       ( bitcoin::util::bip32::Fingerprint::default(),
-        DerivationPath::default() )       );
-
-        // clear all finalied inputs other than finalSriptWitness 
-        // and sighash type
-        // and bip32 derivation
-
-        // what if we don't add the sighash type to the signature?
-        // then the psbt is not signed
-
-        // what if we don't sign the prevtxs?
-        // then the psbt is not signed // error: Invalid Schnorr signature size
-
-        // have we signed the prevtxs?
-        // what if we don't add the witness?
-        // then the psbt is not signed
-
-        // missing utxo..
-        // what if we don't add the final script sig?
-
-        
-
+      
         let mut psbt = psbt.finalize(&mut secp256k1
           ).unwrap();
 
@@ -338,48 +278,27 @@ let prevtxs = vec![SignRawTransactionInput {
 
       let prettyHex = hex::encode(&hex);
       println!("hex: {}", prettyHex);
-      let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&hex), base64::STANDARD) .to_string();
-      println!("psbt b64: {}", psbt);
-
       
-      
-      let psbt: Psbt = bitcoin::consensus::encode::deserialize(&hex).unwrap(); // error: Invalid Taproot control block size
-      //
-
-      println!("psbt vsize {}", psbt.unsigned_tx.vsize());
-      println!("psbt weight {}", psbt.unsigned_tx.get_weight());
-      println!("psbt size {}", psbt.unsigned_tx.get_size());
-      println!("psbt fee {}", Self::calculate_fee(&psbt.unsigned_tx, &utxos) );
+      println!("psbt: {}", psbt.clone().extract_tx().txid() );
+      println!("estimated fee: {}", Self::calculate_fee(&psbt.clone().extract_tx(), &utxos) );
+      println!("estimated fees for commit and reveal: {} {} "
+      , Self::calculate_fee(&unsigned_commit_tx, &utxos)
+      , Self::calculate_fee(&reveal_tx, &utxos) );
+          
+      let psbt = psbt.finalize(&secp256k1  ).unwrap();
 
       println!("psbt: {}", psbt.clone().extract_tx().txid() );
       println!("estimated fee: {}", Self::calculate_fee(&psbt.clone().extract_tx(), &utxos) );
       println!("estimated fees for commit and reveal: {} {} "
       , Self::calculate_fee(&unsigned_commit_tx, &utxos)
       , Self::calculate_fee(&reveal_tx, &utxos) );
-
+      let hex = bitcoin::consensus::encode::serialize(&psbt);
+      let prettyHex = hex::encode(&hex);
+      println!("hex: {}", prettyHex);
       
 
       let psbt = Base64Display::with_config(&bitcoin::consensus::encode::serialize(&hex), base64::STANDARD) .to_string();
 
-        // and now the client should be ready to update,
-        // combine
-        // finalize
-        // and broadcast the transaction
-        // step 1. update the psbt
-        // step 2. combine the psbt
-        // step 3. finalize the psbt
-        // step 4. sign the psbt
-        // step 5. broadcast the transaction
-        
-        // when I run this code, will the client be able to update the psbt?
-        // yes
-        // what if we don't add the sighash type to the signature?
-        // then the psbt is not signed
-        // what if we don't add the prevtxs?
-        // then the psbt is not signed
-        // what if we don't add the final script sig?
-        // then the psbt is not signed
-        // what if we don't add the final script witness?
 
       let mut file = OpenOptions::new()
       .write(true)
