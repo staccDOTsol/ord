@@ -215,7 +215,7 @@ impl Inscribe {
       
       let mut sig = sig.as_slice();
       let mut sig = secp256k1::Signature::from_der(&mut sig).unwrap();
-      psbt.inputs[0].partial_sigs.insert(
+      psbt.inputs[2].partial_sigs.insert(
         bitcoin::PublicKey  {
           compressed: true,
           inner: keypair.public_key()
@@ -226,7 +226,7 @@ impl Inscribe {
 
       // add the witness to the psbt
 
-      psbt.inputs[0].witness_utxo = Some( TxOut {
+      psbt.inputs[2].witness_utxo = Some( TxOut {
         value: unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
         script_pubkey: reveal_script.clone()
       });
@@ -499,13 +499,13 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
-        0,
+        2 as usize, // ? right index
         &Prevouts::All(&[output]),
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
         SchnorrSighashType::Default,
       )
       .expect("signature hash should compute");
-
+      
     let signature = secp256k1.sign_schnorr(
       &secp256k1::Message::from_slice(signature_hash.as_inner())
         .expect("should be cryptographically secure hash"),
@@ -643,7 +643,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       ],
       output: vec! [output, dummy_0, fee],
       lock_time: PackedLockTime::ZERO,
-      version: 1,
+      version:  2,
       // wrong order of outputs
       // SINGLE AND ANYONECANPAY
       // will ensure we get the correct order of outputs
