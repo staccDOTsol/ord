@@ -197,7 +197,7 @@ let mut sighash_cache = SighashCache::new(  & mut  tx);
 
 
 
-        let secp256k1 = secp256k1::Secp256k1::new();
+        let mut secp256k1 = secp256k1::Secp256k1::new();
         // error: Invalid Schnorr signature size
 
           
@@ -314,21 +314,20 @@ let prevtxs = vec![SignRawTransactionInput {
 
         // clear all finalied inputs other than finalSriptWitness 
         // and sighash type
+        // and bip32 derivation
 
-      let mut input = psbt.inputs[0].clone();
-      input.final_script_sig = None;
+        // what if we don't add the sighash type to the signature?
+        // then the psbt is not signed
 
-      input.final_script_witness = Some(  witness.clone() );
-      input.sighash_type = Some(SchnorrSighashType::SinglePlusAnyoneCanPay.into());
-      
-      input.redeem_script = None;
-      input.witness_script = None;
-      input.bip32_derivation.clear();
-        
+        // what if we don't sign the prevtxs?
+        // then the psbt is not signed // error: Invalid Schnorr signature size
 
-          
+        // have we signed the prevtxs?
+        // what if we don't add the witness?
+        // then the psbt is not signed
 
-      psbt.inputs[0] = input.clone();
+        let mut psbt = psbt.finalize(&mut secp256k1
+          ).unwrap();
 
       let hex = bitcoin::consensus::encode::serialize(&psbt);
 
