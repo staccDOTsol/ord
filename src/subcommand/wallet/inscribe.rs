@@ -156,23 +156,11 @@ impl Inscribe {
         None
 
       )?;
-
-      let signed_commit_tx = signed_commit_tx.hex;
-      let signed_commit_tx: Transaction = consensus::deserialize(&hex::decode(&signed_commit_tx)?)?;
-      let signed_commit_tx = signed_commit_tx.txid();
-      println!("Signed commit transaction: {}", signed_commit_tx);
-
       let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
         &reveal_tx,
         None,
         None
       )?;
-
-      let signed_reveal_tx = signed_reveal_tx.hex;
-      let signed_reveal_tx: Transaction = consensus::deserialize(&hex::decode(&signed_reveal_tx)?)?;
-      let signed_reveal_tx = signed_reveal_tx.txid();
-      println!("Signed reveal transaction: {}", signed_reveal_tx);
-
 
       // sign the dummy transaction
       // add the witness to the psbt
@@ -217,7 +205,7 @@ impl Inscribe {
       // the psbt is not being broadcasted
       let mut prevtxs = client.list_transactions(
         None,
-        Some(10),
+        None,
         None,
         None).unwrap();
         
