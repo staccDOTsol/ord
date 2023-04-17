@@ -298,13 +298,11 @@ let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).u
   )
   .expect("should be valid DER signature")  ; 
 
-  let mut signature = sig.clone()  .serialize_der().to_vec();
+  let mut signature = sig.clone()  .serialize_der() ;   
   // ist his the right way to do it?
 
 
-  signature.push(SchnorrSighashType::SinglePlusAnyoneCanPay as u8);
-  let mut sig = secp256k1::ecdsa::Signature::from_der(  &signature).expect("should be valid DER signature")  ;
-
+  let mut sig = secp256k1::ecdsa::Signature::from_der(  &signature).unwrap();
 
   let witness = sighash_cache
     .witness_mut(vout)
