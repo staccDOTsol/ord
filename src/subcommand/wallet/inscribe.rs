@@ -195,7 +195,7 @@ impl Inscribe {
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
 
       let mut sighash_cache = SighashCache::new(&mut reveal_tx);
-  
+  /*
     let witness = sighash_cache
       .witness_mut(0)
       .expect("getting mutable witness reference should work");
@@ -204,17 +204,7 @@ impl Inscribe {
     witness.push(&controlblock.serialize());
 
   
-      
-    let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
-      &psbt.clone().extract_tx(),
-      None,
-      None
-    )?; 
-    let signed_reveal_tx = signed_reveal_tx.hex;
-    let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
-
-    psbt.unsigned_tx = signed_reveal_tx.clone();
-
+       */
       
       // whats' broken
       // extract sig
@@ -276,29 +266,16 @@ impl Inscribe {
       witness.push(keypair.public_key().serialize().to_vec());
       
 
+      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
+        &psbt.clone().extract_tx(),
+        None,
+        None
+      )?; 
+      let signed_reveal_tx = signed_reveal_tx.hex;
+      let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
+  
+      psbt.unsigned_tx = signed_reveal_tx.clone();
 
-
-      // add the witness to the psb2
-
-      psbt.inputs[0].witness_utxo = Some( TxOut {
-        value: unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
-        script_pubkey:  unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].script_pubkey.clone(),
-      });
-
-      // finalize the psbt
-
-      let secp256k1 = Secp256k1::new();
-
-      // broadcast the psbt
-
-
-
-
-
-
-
-
-      
 
 
 
@@ -555,7 +532,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
         1 as usize,
-        &Prevouts::One(0, output.clone()), // ignature hash should compute: PrevoutsSize::One,
+        &Prevouts::One(1, output.clone()), // ignature hash should compute: PrevoutsSize::One,
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
         SchnorrSighashType::SinglePlusAnyoneCanPay
       )
