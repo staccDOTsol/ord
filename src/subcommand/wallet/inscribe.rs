@@ -501,12 +501,14 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     .find(|outpoint| !inscribed_utxos.contains(outpoint))
     .map(|outpoint| *outpoint)
     .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))?;
+  inscribed_utxos.insert(dummy_utxo);
     
     let dummy_0_utxo = utxos
     .keys()
     .find(|outpoint| !inscribed_utxos.contains(outpoint))
     .map(|outpoint| *outpoint)
     .ok_or_else(|| anyhow!("wallet contains no cardinal utxos"))?;
+  inscribed_utxos.insert(dummy_0_utxo);
   
     
 
@@ -601,21 +603,11 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     // and then sign it with SIGHASH SINGLE
     // and then use the signature to create a valid tx
     // with the correct order of outputs
-
-   
-    // we need to create a tx with the correct order of outputs
-    // and then sign it with SIGHASH SINGLE
-
     
-    // is this right 
-
-
-    // we need to create a tx with the correct order of outputs
-    // and then sign it with SIGHASH SINGLE
-
-    let dummy_0 = TxOut::default(); 
-    
-
+let dummy_0 = TxOut {
+      script_pubkey: Script::default(),
+      value: 0,
+    };
 
     
     let reveal_tx = Transaction {
