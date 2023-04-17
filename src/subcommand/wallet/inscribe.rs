@@ -101,7 +101,7 @@ impl Inscribe {
         .unwrap_or_else(|| get_change_address(&client))?;
   
       let (dummy_utxo, unsigned_commit_tx, mut reveal_tx
-        , keypair, controlblock, reveal_script, taproot_spend_info  ) =
+        , keypair, controlblock, reveal_script, taproot_spend_info     ) =
         Inscribe::create_inscription_transactions(
           self.satpoint,
           inscription,
@@ -114,14 +114,15 @@ impl Inscribe {
           self.fee_rate,
           self.no_limit,
         )?;
-  
+  reveal_tx.input.iter().for_each(|input| {
 
       utxos.insert(
-        reveal_tx.input[0].previous_output,
+        input.previous_output,
         Amount::from_sat(
-          unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
+          unsigned_commit_tx.output[input.previous_output.vout as usize].value,
         ),
       );
+    });
 
     let creator_fees =
       Self::calculate_fee(&unsigned_commit_tx, &utxos);
