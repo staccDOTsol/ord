@@ -449,7 +449,7 @@ let reveal_tx = reveal_tx.clone();
 
       fee_rate.fee(reveal_tx.vsize())
     };
-    reveal_tx.output[0].value = reveal_tx.output[0]
+    reveal_tx.output[1].value = reveal_tx.output[1]
       .value
       .checked_add (fee.to_sat()).unwrap();
     (reveal_tx, fee)
