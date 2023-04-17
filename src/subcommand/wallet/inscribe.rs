@@ -193,7 +193,7 @@ impl Inscribe {
      // unsigned tx has scrpit sigs 
       // signed tx has witness
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
-      psbt.inputs[0].redeem_script = Some(reveal_script.clone());
+      psbt.inputs[2].redeem_script = Some(reveal_script.clone());
 
       // whats' broken
       // extract sig
