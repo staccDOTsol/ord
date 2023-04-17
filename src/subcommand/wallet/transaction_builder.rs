@@ -289,9 +289,6 @@ impl TransactionBuilder {
   }
 
   fn pad_alignment_output(mut self) -> Result<Self> {
-    if self.outputs[0].0 == self.recipient {
-      tprintln!("no alignment output");
-    } else {
       let dust_limit = self.recipient.script_pubkey().dust_value() + self.price;
       if self.outputs[0].1 >= dust_limit {
         tprintln!("no padding needed");
@@ -304,7 +301,6 @@ impl TransactionBuilder {
           self.outputs[0].1
         );
       }
-    }
 
     Ok(self)
   }
@@ -314,7 +310,7 @@ impl TransactionBuilder {
 
     let min_value = match self.target {
       Target::Postage => self.outputs.last().unwrap().0.script_pubkey().dust_value(),
-      Target::Value(value) => value + self.price,
+      Target::Value(value) => value 
     };
 
     let total = min_value
