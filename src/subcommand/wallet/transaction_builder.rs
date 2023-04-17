@@ -295,8 +295,7 @@ impl TransactionBuilder {
       } else {
         let (utxo, size) = self.select_cardinal_utxo(dust_limit - self.outputs[0].1)?;
         self.inputs.push(utxo);
-        self.outputs.insert(0, (self.recipient.clone(), Amount::from_sat(size.to_sat() as u64)));
-        self.outputs.iter_mut().last().unwrap().0 = self.destination.clone();
+        self.outputs.insert(1, (self.destination.clone(), Amount::from_sat(self.price.as_sat() ) ));
         tprintln!(
           "padded alignment output to {} with additional {size} sat input",
           self.outputs[0].1
