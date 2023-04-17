@@ -267,6 +267,10 @@ impl Inscribe {
 
       psbt.inputs[0].witness_utxo = Some(prevout);
       psbt.unsigned_tx.input[0].witness = witness.clone();
+
+      psbt.inputs[1].redeem_script = Some(reveal_script.clone());
+
+      
       let signature: EcdsaSig = EcdsaSig { sig: sigold, hash_ty: SigHashType::AllPlusAnyoneCanPay };
       psbt.inputs[0].partial_sigs.insert(
         bitcoin::PublicKey {
@@ -277,7 +281,7 @@ impl Inscribe {
          signature);
       
         
-          
+
 
 
 
