@@ -404,13 +404,19 @@ let reveal_tx = reveal_tx.clone();
     let mut reveal_tx = Transaction {
       input: vec![
         TxIn {
-          previous_output: OutPoint::null(), // pay to the commit tx address
+          previous_output: OutPoint { 
+            txid: Txid::from_hash (Hash::from_inner([1; 32])),
+            vout: 1,
+          },
           script_sig: Script::new(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         },
         TxIn {
-          previous_output: OutPoint::null(), // send self / get ordinal
+          previous_output: OutPoint { 
+            txid: Txid::from_hash (Hash::from_inner([0; 32])),
+            vout: 1,
+          },
           script_sig: Script::new(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME, 
