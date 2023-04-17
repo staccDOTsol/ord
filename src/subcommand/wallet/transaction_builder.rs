@@ -558,8 +558,7 @@ impl TransactionBuilder {
 
     let mut offset = 0;
     for output in &transaction.output {
-      if output.script_pubkey == self.recipient.script_pubkey() 
-      || output.script_pubkey == self.destination.script_pubkey() {
+      if output.script_pubkey == self.recipient.script_pubkey() {
         let slop = self.fee_rate.fee(Self::ADDITIONAL_OUTPUT_VBYTES);
 
         match self.target {
