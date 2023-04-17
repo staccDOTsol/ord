@@ -294,7 +294,7 @@ let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).u
     &key_pair,
   );
   let mut sig =  &secp256k1::ecdsa::Signature::from_compact(
-    secp256k1::schnorr::Signature::as_ref(&signature),
+&    secp256k1::schnorr::Signature::as_ref(&signature)[..]
   )
   .expect("should be valid DER signature")  ; 
 
