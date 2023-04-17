@@ -159,12 +159,7 @@ impl Inscribe {
       )?;
 
       let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;  
-      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
-        &reveal_tx,
-        None,
-        None
-      ).unwrap().hex;
-
+     
       
 
       // sign the dummy transaction
@@ -194,8 +189,16 @@ impl Inscribe {
 //      let broadcasted_commit_tx = client.send_raw_transaction(&signed_commit_tx.hex)?;
   //    let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
    //   println!("Broadcasted commit transaction: {}", broadcasted_commit_tx);
-    
+     // let broadcasted_commit_tx = broadcasted_commit_tx.to_string();
+     // unsigned tx has scrpit sigs 
+      // signed tx has witness
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
+      psbt.inputs[0].redeem_script = Some(reveal_script.clone());
+
+      // whats' broken
+      // extract sig
+      // whats' broken
+      // the signature is not being added to the psbt
       // all the things up til now are just to get the psbt
       // now we need to add the witness and the signature
       // is revealtx signed already or not?
@@ -226,7 +229,7 @@ impl Inscribe {
       let signature_hash = sighash_cache
         .taproot_signature_hash(
           0,
-          &Prevouts::One(2 as usize, prevout.clone()),
+          &Prevouts::One(0 as usize, prevout.clone()),
           None, None, SigHashType::SinglePlusAnyoneCanPay.into()
         )
         .expect("signature hash should compute");
@@ -264,7 +267,6 @@ impl Inscribe {
       // finalize the psbt
 
       let secp256k1 = Secp256k1::new();
-      let psbt = psbt.clone().finalize(&secp256k1).unwrap();
 
       // broadcast the psbt
 
@@ -633,7 +635,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
         },
         TxIn {
           previous_output: input, // commit tx output
-          script_sig: reveal_script.clone(),
+          script_sig:  Script::default(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         }
