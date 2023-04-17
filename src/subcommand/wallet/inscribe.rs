@@ -268,12 +268,7 @@ impl Inscribe {
       &reveal_script,
       commit_tx_address.clone(),
     );
-    reveal_tx.output[2].value = reveal_tx.output[2]
-    .value
-    .checked_sub(fee.to_sat()) // 6667 is the fee for the commit transaction  
-    .context("commit transaction output value insufficient to pay transaction fee")?;
-
-
+    
     let   (mut vout, mut output) : (usize, TxOut)=  
   
   (2,
