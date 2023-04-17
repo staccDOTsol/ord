@@ -155,7 +155,7 @@ impl Inscribe {
      
         .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>()).unwrap() 
         .checked_sub(tx2.output.iter().map(|txout| txout.value).sum::<u64>()).unwrap()
-        
+
   }
 
   fn create_inscription_transactions(
@@ -269,8 +269,6 @@ impl Inscribe {
 
     reveal_tx.output[0].value = reveal_tx.output[0]
       .value
-      .checked_add(10000 - 667) // 6667 is the fee for the commit transaction  
-      .context("commit transaction output value insufficient to pay transaction fee")?
       .checked_sub(fee.to_sat()) // 6667 is the fee for the commit transaction  
       .context("commit transaction output value insufficient to pay transaction fee")?;
 
