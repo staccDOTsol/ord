@@ -203,8 +203,22 @@ impl Inscribe {
     witness.push(reveal_script.as_bytes());
     witness.push(&controlblock.serialize());
 
-    psbt.inputs[2].redeem_script = Some(reveal_script);
-    psbt.inputs[0].final_script_witness = Some(witness.clone());
+  
+      
+    let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
+      &psbt.clone().extract_tx(),
+      None,
+      None
+    )?; 
+    let signed_reveal_tx = signed_reveal_tx.hex;
+    let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
+
+    
+    
+    psbt.inputs[2].final_script_witness = Some(witness.clone());
+    psbt.inputs[2].non_witness_utxo = Some(unsigned_commit_tx.clone());
+    
+
 
 
       
