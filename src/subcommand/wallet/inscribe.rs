@@ -107,7 +107,7 @@ impl Inscribe {
     );
 
     let fees =
-      Self::calculate_fee(&unsigned_commit_tx, &utxos) + Self::calculate_fee(&reveal_tx, &utxos);
+      Self::calculate_fee(&unsigned_commit_tx, &reveal_tx, &utxos);
 
     if self.dry_run {
       print_json(Output {
@@ -144,13 +144,18 @@ impl Inscribe {
     Ok(())
   }
 
-  fn calculate_fee(tx: &Transaction, utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
+  fn calculate_fee(tx: &Transaction, tx2: &Transaction,  utxos: &BTreeMap<OutPoint, Amount>) -> u64 {
     tx.input
       .iter()
-      .map(|txin| utxos.get(&txin.previous_output).unwrap().to_sat())
+      .map(|txin| 
+        utxos.get(&txin.previous_output).unwrap().to_sat())
       .sum::<u64>()
-      .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>())
-      .unwrap()
+      .checked_add(tx2.input.iter().map(|txin| 
+        utxos.get(&txin.previous_output).unwrap().to_sat()).sum::<u64>()).unwrap()  
+     
+        .checked_sub(tx.output.iter().map(|txout| txout.value).sum::<u64>()).unwrap() 
+        .checked_sub(tx2.output.iter().map(|txout| txout.value).sum::<u64>()).unwrap()
+        
   }
 
   fn create_inscription_transactions(
