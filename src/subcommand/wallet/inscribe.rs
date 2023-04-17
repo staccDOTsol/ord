@@ -101,7 +101,7 @@ impl Inscribe {
         .unwrap_or_else(|| get_change_address(&client))?;
   
       let (dummy_utxo, unsigned_commit_tx, mut reveal_tx
-        , keypair, controlblock, reveal_script, taproot_spend_info, signature, witness ) =
+        , keypair, controlblock, reveal_script, taproot_spend_info  ) =
         Inscribe::create_inscription_transactions(
           self.satpoint,
           inscription,
@@ -401,7 +401,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<( OutPoint, Transaction, Transaction, KeyPair, ControlBlock, Script, TaprootSpendInfo, Signature, Witness ), anyhow::Error> {
+  ) -> Result<( OutPoint, Transaction, Transaction, KeyPair, ControlBlock, Script, TaprootSpendInfo ), anyhow::Error> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -523,51 +523,10 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       &reveal_script,reveal_fee, dummy_0_utxo
     );
     println!("reveal tx fee: {}", fee);
-   let  cloned = &mut reveal_tx.clone();
-    let mut sighash_cache = SighashCache::new(   cloned  );
+    
 
-    let signature_hash = sighash_cache
-      .taproot_script_spend_signature_hash(
-        0,
-        &Prevouts::All(&[output]),
-        TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-        SchnorrSighashType::Default,
-      )
-      .expect("signature hash should compute");
-
-    // sighash single signature
-     // we only want to sign input 2 
-     // the client will sign input 0 and 1
-
-     
-
-
-
-    let signature = secp256k1.sign_schnorr(
-      &secp256k1::Message::from_slice(signature_hash.as_inner())
-        .expect("should be cryptographically secure hash"),
-      &key_pair,
-    );
-
-    let witness = sighash_cache
-      .witness_mut(0)
-      .expect("getting mutable witness reference should work");
-    witness.push(signature.as_ref());
-    witness.push(reveal_script .clone() );
-    witness.push(&control_block.serialize());
-
-    let recovery_key_pair = key_pair.tap_tweak(&secp256k1, taproot_spend_info.merkle_root());
-
-    let (x_only_pub_key, _parity) = recovery_key_pair.to_inner().x_only_public_key();
-    assert_eq!(
-      Address::p2tr_tweaked(
-        TweakedPublicKey::dangerous_assume_tweaked(x_only_pub_key),
-        network,
-      ),
-      commit_tx_address
-    );
     Ok((dummy_0_utxo, unsigned_commit_tx,    reveal_tx  
-      ,  key_pair, control_block,reveal_script , taproot_spend_info, signature, witness.clone() ))
+      ,  key_pair, control_block,reveal_script , taproot_spend_info  ))
   }
 
   fn backup_recovery_key(
