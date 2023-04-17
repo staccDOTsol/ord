@@ -251,7 +251,7 @@ impl Inscribe {
       .output
       .iter()
       .enumerate()
-      .find(|(_vout, output)| output.script_pubkey == destination.clone().script_pubkey())
+      .find(|(_vout, output)| output.script_pubkey == commit_tx_address.clone().script_pubkey())
       .expect("should find sat commit/inscription output");
 
     let (mut reveal_tx, fee) = Self::build_reveal_transaction(
