@@ -298,10 +298,8 @@ impl TransactionBuilder {
       } else {
         let (utxo, size) = self.select_cardinal_utxo(dust_limit - self.outputs[0].1)?;
         self.inputs.insert(0, utxo);
-
-        self.outputs.push((
-          self.destination.clone(), size));        
-        println!(
+        self.outputs[0].1 += size;
+        tprintln!(
           "padded alignment output to {} with additional {size} sat input",
           self.outputs[0].1
         );
