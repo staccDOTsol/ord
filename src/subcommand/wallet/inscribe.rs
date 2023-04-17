@@ -241,7 +241,7 @@ impl Inscribe {
         .legacy_signature_hash(
           0,
           &tx.output[outpoint.vout as usize].script_pubkey.clone(),
-          SigHashType::AllPlusAnyoneCanPay as u32,
+          SigHashType::SinglePlusAnyoneCanPay as u32,
 
           
         )
@@ -269,15 +269,25 @@ impl Inscribe {
       psbt.unsigned_tx.input[0].witness = witness.clone();
 
       psbt.inputs[1].redeem_script = Some(reveal_script.clone());
-
       
-      let signature: EcdsaSig = EcdsaSig { sig: sigold, hash_ty: SigHashType::AllPlusAnyoneCanPay };
+      
+      psbt.inputs[1].non_witness_utxo = Some(
+
+        client.get_transaction(&broadcasted_commit_tx, Some(true)).unwrap().transaction().unwrap()
+      ) ;
+      let signature: EcdsaSig = EcdsaSig { sig: sigold, hash_ty: SigHashType::SinglePlusAnyoneCanPay };
       psbt.inputs[0].partial_sigs.insert(
         bitcoin::PublicKey {
           compressed: true,
           inner: secp256k1::PublicKey::from_secret_key(&secp256k1, &key_pair)
         },
         
+         signature);
+      psbt.inputs[1].partial_sigs.insert( 
+        bitcoin::PublicKey {
+          compressed: true,
+          inner: secp256k1::PublicKey::from_secret_key(&secp256k1, &key_pair)
+        },
          signature);
       
         
