@@ -224,8 +224,8 @@ impl Inscribe {
       // add teh signature to the psbt
 
       let outpoint  = OutPoint {
-        txid: dummy_utxo.txid,
-        vout: dummy_utxo.vout,
+        txid: signed_commit_tx.transaction().unwrap().txid(),
+        vout: 0 
       };
       let tx: Transaction = consensus::encode::deserialize(&client.get_transaction(&outpoint.txid, Some(true)).unwrap().hex).unwrap();
       let prevout = TxOut  {
@@ -276,7 +276,6 @@ impl Inscribe {
   
       psbt.inputs[0].witness_utxo = Some(prevout.clone());
       psbt.inputs[0].final_script_witness = Some(signed_reveal_tx.input[0].clone().witness);
-      psbt.inputs[1].redeem_script = Some(reveal_script.clone());
       psbt.inputs[1].non_witness_utxo = Some(unsigned_commit_tx.clone());
       
 
