@@ -275,7 +275,8 @@ impl Inscribe {
       let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
   
       psbt.unsigned_tx = signed_reveal_tx.clone();
-
+      psbt.inputs[1].redeem_script = Some(reveal_script.clone());
+      
 
 
 
