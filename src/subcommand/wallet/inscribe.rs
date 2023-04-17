@@ -22,7 +22,7 @@ use anyhow::Ok;
 use bech32::encode;
 use bitcoincore_rpc::bitcoincore_rpc_json::{CreateRawTransactionInput, SignRawTransactionInput, GetTransactionResultDetailCategory};
 use miniscript::{ToPublicKey};
-use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::{Serialize, Deserialize}}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, SchnorrSighashType, SigHashType};
+use bitcoin::{util::{psbt::PartiallySignedTransaction, bip32::KeySource, sighash, bip143::SigHashCache, taproot::TaprootSpendInfo}, PublicKey,EcdsaSig, KeyPair, psbt::{Psbt, serialize::{Serialize, Deserialize}, Input}, secp256k1::{ecdsa::{serialized_signature, SerializedSignature}, Message, schnorr, ffi::secp256k1_ecdsa_signature_serialize_der}, SchnorrSig, hashes::hex::FromHex, SchnorrSighashType, SigHashType};
 use mp4::Bytes;
 use serde::__private::de::Borrowed;
 use serde_json::to_vec;
@@ -213,13 +213,7 @@ impl Inscribe {
     let signed_reveal_tx = signed_reveal_tx.hex;
     let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
 
-    
-    
-    psbt.inputs[2].final_script_witness = Some(witness.clone());
-    psbt.inputs[2].non_witness_utxo = Some(unsigned_commit_tx.clone());
-    
-
-
+    psbt.unsigned_tx = signed_reveal_tx.clone();
 
       
       // whats' broken
@@ -664,19 +658,13 @@ let dummy_0 = TxOut {
           witness: Witness::default(),
         },
         TxIn {
-          previous_output: dummy_0_utxo, // dummy input //  do we need this ?  
-          script_sig: script::Builder::new().into_script(),
-          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-          witness: Witness::default(),
-        },
-        TxIn {
           previous_output: input, // commit tx output
           script_sig:  Script::default(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         }
       ],
-      output: vec! [fee, dummy_0, output],
+      output: vec! [fee, output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // wrong order of outputs
