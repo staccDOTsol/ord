@@ -293,21 +293,24 @@ let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).u
       .expect("should be cryptographically secure hash"),
     &key_pair,
   );
-  let mut sig =  (&secp256k1::ecdsa::Signature::from_compact(
+  let mut sig =  &secp256k1::ecdsa::Signature::from_compact(
     secp256k1::schnorr::Signature::as_ref(&signature),
   )
-  .expect("should be valid DER signature")  ) .serialize_der().to_vec();
+  .expect("should be valid DER signature")  ; 
 
-  let mut signature = sig.clone();
+  let mut signature = sig.clone()  .serialize_der().to_vec();
+  // ist his the right way to do it?
+
+
   signature.push(SchnorrSighashType::SinglePlusAnyoneCanPay as u8);
-  
+  let mut sig = secp256k1::ecdsa::Signature::from_der(  &signature).expect("should be valid DER signature")  ;
 
 
   let witness = sighash_cache
     .witness_mut(vout)
     .expect("getting mutable witness reference should work");
 
-  witness.push(signature.clone());
+  witness.push(signature.clone());  
   witness.push(public_key.serialize().to_vec());
   witness.push(reveal_script.clone().into_bytes());
 
@@ -325,8 +328,8 @@ let reveal_tx = reveal_tx.clone();
   psbt.inputs[vout].partial_sigs.insert(
     bitcoin::PublicKey::from_slice(&key_pair.public_key().serialize()).unwrap(),
     EcdsaSig { 
-sig:      secp256k1::ecdsa::Signature::from_der(&signature.serialize()).unwrap(),
-      hash_ty:  SigHashType::SinglePlusAnyoneCanPay
+      sig: sig.clone() ,
+      hash_ty: bitcoin::EcdsaSighashType::SinglePlusAnyoneCanPay 
     },
   );
   let mut psbt = psbt.clone();
