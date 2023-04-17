@@ -193,7 +193,6 @@ impl Inscribe {
      // unsigned tx has scrpit sigs 
       // signed tx has witness
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
-      psbt.inputs[2].redeem_script = Some(reveal_script.clone());
 
       // whats' broken
       // extract sig
@@ -442,8 +441,6 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
     let reveal_script = inscription.append_reveal_script(
       script::Builder::new()
-        .push_slice(&public_key.serialize())
-        .push_opcode(opcodes::all::OP_CHECKSIG),
     );
     
     let taproot_spend_info = TaprootBuilder::new()
@@ -537,7 +534,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
   fn backup_recovery_key(
     client: &Client,
     recovery_key_pair: TweakedKeyPair,
-    network: Network,
+    network: Network
   ) -> Result {
     let recovery_private_key = PrivateKey::new(recovery_key_pair.to_inner().secret_key(), network);
 
