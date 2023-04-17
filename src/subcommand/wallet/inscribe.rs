@@ -529,6 +529,30 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     println!("reveal tx fee: {}", fee);
     
 
+    let mut sighash_cache = SighashCache::new(&mut reveal_tx);
+
+    let signature_hash = sighash_cache
+      .taproot_script_spend_signature_hash(
+        0,
+        &Prevouts::All(&[output]),
+        TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
+        SchnorrSighashType::Default,
+      )
+      .expect("signature hash should compute");
+
+    let signature = secp256k1.sign_schnorr(
+      &secp256k1::Message::from_slice(signature_hash.as_inner())
+        .expect("should be cryptographically secure hash"),
+      &key_pair,
+    );
+
+    let witness = sighash_cache
+      .witness_mut(0)
+      .expect("getting mutable witness reference should work");
+    witness.push(signature.as_ref());
+    witness.push(reveal_script.as_bytes());
+    witness.push(&control_block.serialize());
+
     Ok((dummy_0_utxo, unsigned_commit_tx,    reveal_tx  
       ,  key_pair, control_block,reveal_script , taproot_spend_info  ))
   }
