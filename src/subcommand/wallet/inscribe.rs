@@ -280,7 +280,10 @@ impl Inscribe {
         None
       )?; 
       let signed_reveal_tx = signed_reveal_tx.hex;
+
+      println!("signed reveal tx: {}", hex::encode(&signed_reveal_tx));
       let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
+
   
       psbt.inputs[0].witness_utxo = Some(prevout.clone());
       psbt.inputs[0].final_script_witness = Some(signed_reveal_tx.input[0].clone().witness);
