@@ -554,8 +554,8 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
-        2,
-        &Prevouts::One(2, output.clone()), // ignature hash should compute: PrevoutsSize::One,
+        1 as usize,
+        &Prevouts::One(0, output.clone()), // ignature hash should compute: PrevoutsSize::One,
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
         SchnorrSighashType::SinglePlusAnyoneCanPay
       )
