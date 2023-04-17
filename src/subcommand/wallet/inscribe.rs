@@ -101,7 +101,7 @@ impl Inscribe {
         .unwrap_or_else(|| get_change_address(&client))?;
   
       let (dummy_utxo, unsigned_commit_tx, mut reveal_tx
-        , keypair, controlblock, reveal_script, taproot_spend_info     ) =
+        , keypair, controlblock, reveal_script, taproot_spend_info, signature_hash, signature     ) =
         Inscribe::create_inscription_transactions(
           self.satpoint,
           inscription,
@@ -194,6 +194,9 @@ impl Inscribe {
       // signed tx has witness
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
 
+    psbt.inputs[2].witness_script = Some(reveal_script);
+
+      
       // whats' broken
       // extract sig
       // whats' broken
@@ -403,7 +406,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     commit_fee_rate: FeeRate,
     reveal_fee_rate: FeeRate,
     no_limit: bool, 
-  ) -> Result<( OutPoint, Transaction, Transaction, KeyPair, ControlBlock, Script, TaprootSpendInfo ), anyhow::Error> {
+  ) -> Result<( OutPoint, Transaction, Transaction, KeyPair, ControlBlock, Script, TaprootSpendInfo, TapSighashHash, Signature )> {
     let satpoint = if let Some(satpoint) = satpoint {
       satpoint
     } else {
@@ -528,7 +531,6 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     );
     println!("reveal tx fee: {}", fee);
     
-
     let mut sighash_cache = SighashCache::new(&mut reveal_tx);
 
     let signature_hash = sighash_cache
@@ -546,15 +548,9 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       &key_pair,
     );
 
-    let witness = sighash_cache
-      .witness_mut(0)
-      .expect("getting mutable witness reference should work");
-    witness.push(signature.as_ref());
-    witness.push(reveal_script.as_bytes());
-    witness.push(&control_block.serialize());
 
     Ok((dummy_0_utxo, unsigned_commit_tx,    reveal_tx  
-      ,  key_pair, control_block,reveal_script , taproot_spend_info  ))
+      ,  key_pair, control_block,reveal_script , taproot_spend_info, signature_hash, signature ))
   }
 
   fn backup_recovery_key(
