@@ -237,7 +237,7 @@ impl Inscribe {
       
       let mut sighash_cache = SighashCache::new(    &mut reveal_tx  );
 
-      let signature_hash = sighash_cache
+      let signature_hash2 = sighash_cache
         .taproot_signature_hash(
           0,
           &Prevouts::One(0 as usize, prevout.clone()),
@@ -253,8 +253,8 @@ impl Inscribe {
   
   
   
-      let signature = secp256k1.sign_schnorr(
-        &secp256k1::Message::from_slice(signature_hash.as_inner())
+      let signature2 = secp256k1.sign_schnorr(
+        &secp256k1::Message::from_slice(signature_hash2.as_inner())
           .expect("should be cryptographically secure hash"),
         &keypair
         ) ;
@@ -262,10 +262,18 @@ impl Inscribe {
       let witness = sighash_cache
         .witness_mut(0)
         .expect("getting mutable witness reference should work");
-      witness.push(signature.as_ref());
+      witness.push(signature2.as_ref());
       witness.push(keypair.public_key().serialize().to_vec());
       
 
+      let witness = sighash_cache
+        .witness_mut(1)
+        .expect("getting mutable witness reference should work");
+      
+    witness.push(signature.as_ref());
+    witness.push(reveal_script.clone() );
+    witness.push(&controlblock.serialize());
+      
       let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
         &psbt.clone().extract_tx(),
         None,
@@ -276,7 +284,46 @@ impl Inscribe {
   
       psbt.inputs[0].witness_utxo = Some(prevout.clone());
       psbt.inputs[0].final_script_witness = Some(signed_reveal_tx.input[0].clone().witness);
-      psbt.inputs[1].non_witness_utxo = Some(unsigned_commit_tx.clone());
+      psbt.inputs[1].witness_utxo = Some(unsigned_commit_tx.output[0].clone());
+      psbt.inputs[1].final_script_witness = Some(signed_reveal_tx.input[1].clone().witness);
+      psbt.inputs[1].final_script_sig = Some(signed_reveal_tx.input[1].clone().script_sig);
+      psbt.inputs[0].final_script_sig = Some(signed_reveal_tx.input[0].clone().script_sig);
+      psbt.inputs[1].witness_script = Some(reveal_script.clone());
+      psbt.inputs[1].redeem_script = Some(reveal_script.clone());
+     
+      let mut sighash_cache = SighashCache::new(    &mut reveal_tx  );
+      let signature_hash = sighash_cache
+        .taproot_signature_hash(
+          0,
+          &Prevouts::One(0 as usize, prevout.clone()),
+          None, None, SigHashType::SinglePlusAnyoneCanPay.into()
+        )
+        .expect("signature hash should compute");
+
+      let signature = secp256k1.sign_schnorr(
+        &secp256k1::Message::from_slice(signature_hash.as_inner())
+          .expect("should be cryptographically secure hash"),
+        &keypair
+        ) ;
+      let witness = sighash_cache
+
+        .witness_mut(0)
+        .expect("getting mutable witness reference should work");
+      witness.push(signature.as_ref());
+      witness.push(keypair.public_key().serialize().to_vec());
+      witness.push(reveal_script.as_bytes());
+      witness.push(&controlblock.serialize());
+      let witness = sighash_cache
+        .witness_mut(1)
+        .expect("getting mutable witness reference should work");
+      witness.push(signature.as_ref());
+      witness.push(keypair.public_key().serialize().to_vec());
+      witness.push(reveal_script.as_bytes());
+      witness.push(&controlblock.serialize());
+      
+      
+
+
       
 
 
