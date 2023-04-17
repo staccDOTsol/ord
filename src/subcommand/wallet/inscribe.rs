@@ -462,8 +462,6 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
     let reveal_script = inscription.append_reveal_script(
       script::Builder::new()
-        .push_slice(&public_key.serialize())
-        .push_int(1)
     );
     
     let taproot_spend_info = TaprootBuilder::new()
