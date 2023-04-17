@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, io::Read};
 
-use bitcoin::{psbt::PartiallySignedTransaction, EcdsaSig, SchnorrSig, SigHashType};
+use bitcoin::{psbt::{PartiallySignedTransaction, serialize::Serialize}, EcdsaSig, SchnorrSig, SigHashType};
 
 use {
   super::*,
@@ -293,18 +293,27 @@ let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).u
       .expect("should be cryptographically secure hash"),
     &key_pair,
   );
-  let mut sig: bitcoin::secp256k1::schnorr::Signature =   signature.clone();
+  let mut sig =  (&secp256k1::ecdsa::Signature::from_compact(
+    secp256k1::schnorr::Signature::as_ref(&signature),
+  )
+  .expect("should be valid DER signature")  ) .serialize_der().to_vec();
 
-  let mut signature = sig.as_ref().to_vec();
+  let mut signature = sig.clone();
   signature.push(SchnorrSighashType::SinglePlusAnyoneCanPay as u8);
+  
 
 
   let witness = sighash_cache
     .witness_mut(vout)
     .expect("getting mutable witness reference should work");
+
   witness.push(signature.clone());
-  witness.push(reveal_script.clone() ) ;
-  witness.push(&control_block.serialize());
+  witness.push(public_key.serialize().to_vec());
+  witness.push(reveal_script.clone().into_bytes());
+
+    
+
+  
   let witness = witness.clone();
 let reveal_tx = reveal_tx.clone();
   psbt.unsigned_tx = reveal_tx.clone();
@@ -316,7 +325,7 @@ let reveal_tx = reveal_tx.clone();
   psbt.inputs[vout].partial_sigs.insert(
     bitcoin::PublicKey::from_slice(&key_pair.public_key().serialize()).unwrap(),
     EcdsaSig { 
-sig:      bitcoin::secp256k1::ecdsa::Signature::from_der(&signature).unwrap(),
+sig:      secp256k1::ecdsa::Signature::from_der(&signature.serialize()).unwrap(),
       hash_ty:  SigHashType::SinglePlusAnyoneCanPay
     },
   );
