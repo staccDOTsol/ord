@@ -263,7 +263,7 @@ impl Inscribe {
       },
       TxOut {
         script_pubkey: destination.clone().script_pubkey(),
-        value: output.value + 6667
+        value: output.value 
       },
       &reveal_script,
       commit_tx_address.clone(),
@@ -409,7 +409,7 @@ let reveal_tx = reveal_tx.clone();
             vout: 1,
           },
           script_sig: Script::new(),
-          witness: Witness::new(),
+          witness: Witness::new(),  
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         },
         TxIn {
@@ -435,7 +435,7 @@ let reveal_tx = reveal_tx.clone();
         },
         TxOut {
           script_pubkey: Script::new(),
-          value: 0 
+          value: 6667,
         },output.clone()     ],
       lock_time: PackedLockTime::ZERO,
       version: 1,
@@ -454,7 +454,7 @@ let reveal_tx = reveal_tx.clone();
 
       fee_rate.fee(reveal_tx.vsize())
     };
-    reveal_tx.output[2].value = reveal_tx.output[2]
+    reveal_tx.output[0].value = reveal_tx.output[0]
       .value
       .checked_add (fee.to_sat()).unwrap();
     (reveal_tx, fee)
