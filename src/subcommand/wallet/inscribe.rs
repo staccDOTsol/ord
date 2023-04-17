@@ -251,7 +251,9 @@ impl Inscribe {
 
     reveal_tx.output[0].value = reveal_tx.output[0]
       .value
-      .checked_sub(fee.to_sat() + 6667 ) // 6667 is the fee for the commit transaction
+      .checked_add(10000 - 667) // 6667 is the fee for the commit transaction  
+      .context("commit transaction output value insufficient to pay transaction fee")?
+      .checked_sub(fee.to_sat()) // 6667 is the fee for the commit transaction  
       .context("commit transaction output value insufficient to pay transaction fee")?;
 
     if reveal_tx.output[0].value < reveal_tx.output[0].script_pubkey.dust_value().to_sat() {
