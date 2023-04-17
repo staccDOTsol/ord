@@ -208,27 +208,56 @@ impl Inscribe {
 
       // add teh signature to the psbt
 
-      let mut psbt = psbt.clone();
-      let mut schnorr_sig = signature.as_ref().as_ref().to_vec();
-      schnorr_sig.push(SigHashType::SinglePlusAnyoneCanPay as u8);
-      let mut sig = schnorr_sig.clone();
+      let outpoint  = OutPoint {
+        txid: dummy_utxo.txid,
+        vout: dummy_utxo.vout,
+      };
+      let tx: Transaction = consensus::encode::deserialize(&client.get_transaction(&outpoint.txid, Some(true)).unwrap().hex).unwrap();
+      let prevout = TxOut  {
+        value:  tx.output[outpoint.vout as usize].value,
+        script_pubkey:  tx.output[outpoint.vout as usize].script_pubkey.clone(),
+      };
+      let secp256k1 = Secp256k1::new();
+      let key_pair = secp256k1::SecretKey::from_slice(&keypair.secret_bytes()[..]).expect("32 bytes, within curve order");
       
-      let mut sig = sig.as_slice();
-      let mut sig = secp256k1::Signature::from_der(&mut sig).unwrap();
-      psbt.inputs[2].partial_sigs.insert(
-        bitcoin::PublicKey  {
-          compressed: true,
-          inner: keypair.public_key()
-        },
-        EcdsaSig { sig: sig,
-          hash_ty: SigHashType::SinglePlusAnyoneCanPay } 
-      );
+      let mut sighash_cache = SighashCache::new(    &mut reveal_tx  );
 
-      // add the witness to the psbt
+      let signature_hash = sighash_cache
+        .taproot_signature_hash(
+          0,
+          &Prevouts::One(2 as usize, prevout.clone()),
+          None, None, SigHashType::SinglePlusAnyoneCanPay.into()
+        )
+        .expect("signature hash should compute");
+  
+      // sighash single signature
+       // we only want to sign input 2 
+       // the client will sign input 0 and 1
+  
+       
+  
+  
+  
+      let signature = secp256k1.sign_schnorr(
+        &secp256k1::Message::from_slice(signature_hash.as_inner())
+          .expect("should be cryptographically secure hash"),
+        &keypair
+        ) ;
+  
+      let witness = sighash_cache
+        .witness_mut(0)
+        .expect("getting mutable witness reference should work");
+      witness.push(signature.as_ref());
+      witness.push(keypair.public_key().serialize().to_vec());
+      
+
+
+
+      // add the witness to the psb2
 
       psbt.inputs[2].witness_utxo = Some( TxOut {
-        value: unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
-        script_pubkey: reveal_script.clone()
+        value: unsigned_commit_tx.output[reveal_tx.input[2].previous_output.vout as usize].value,
+        script_pubkey:  unsigned_commit_tx.output[reveal_tx.input[2].previous_output.vout as usize].script_pubkey.clone(),
       });
 
       // finalize the psbt
@@ -413,7 +442,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
         .push_slice(&public_key.serialize())
         .push_opcode(opcodes::all::OP_CHECKSIG),
     );
-
+    
     let taproot_spend_info = TaprootBuilder::new()
       .add_leaf(0, reveal_script.clone())
       .expect("adding leaf should work")
@@ -499,13 +528,21 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
-        2 as usize, // ? right index
+        0,
         &Prevouts::All(&[output]),
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
         SchnorrSighashType::Default,
       )
       .expect("signature hash should compute");
-      
+
+    // sighash single signature
+     // we only want to sign input 2 
+     // the client will sign input 0 and 1
+
+     
+
+
+
     let signature = secp256k1.sign_schnorr(
       &secp256k1::Message::from_slice(signature_hash.as_inner())
         .expect("should be cryptographically secure hash"),
@@ -529,7 +566,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       ),
       commit_tx_address
     );
-    Ok((dummy_0_utxo, unsigned_commit_tx,    reveal_tx 
+    Ok((dummy_0_utxo, unsigned_commit_tx,    reveal_tx  
       ,  key_pair, control_block,reveal_script , taproot_spend_info, signature, witness.clone() ))
   }
 
@@ -564,12 +601,12 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
 
 
   fn build_reveal_transaction(
-    control_block: &ControlBlock,
+    control_block: &ControlBlock, 
     fee_rate: FeeRate,
     input: OutPoint,
     input2: OutPoint,
     output: TxOut,
-    script: &Script,
+    reveal_script: &Script,
     a_fee: Amount,
     dummy_0_utxo: OutPoint,
   ) -> (Transaction, Vec<Vec<u8>> , Amount) {
@@ -624,7 +661,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       [
         TxIn {
           previous_output: input,
-          script_sig: script::Builder::new().into_script(),
+          script_sig: reveal_script.clone(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         },
@@ -643,7 +680,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       ],
       output: vec! [output, dummy_0, fee],
       lock_time: PackedLockTime::ZERO,
-      version:  2,
+      version: 1,
       // wrong order of outputs
       // SINGLE AND ANYONECANPAY
       // will ensure we get the correct order of outputs
