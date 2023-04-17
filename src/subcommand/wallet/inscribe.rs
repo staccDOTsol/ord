@@ -632,7 +632,7 @@ let dummy_0 = TxOut {
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         }
       ],
-      output: vec! [dummy_0, fee, output],
+      output: vec! [fee, dummy_0, output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // wrong order of outputs
