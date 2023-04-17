@@ -262,7 +262,7 @@ impl Inscribe {
       },
       TxOut {
         script_pubkey: destination.clone().script_pubkey(),
-        value: output.value,
+        value: output.value + 6667
       },
       &reveal_script,
     );
