@@ -440,7 +440,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     let (public_key, _parity) = XOnlyPublicKey::from_keypair(&key_pair);
 
     let reveal_script = inscription.append_reveal_script(
-      script::Builder::new()
+      script::Builder::new() // todo: fix
     );
     
     let taproot_spend_info = TaprootBuilder::new()
