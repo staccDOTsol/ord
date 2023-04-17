@@ -274,7 +274,8 @@ impl Inscribe {
       let signed_reveal_tx = signed_reveal_tx.hex;
       let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
   
-      psbt.unsigned_tx = signed_reveal_tx.clone();
+      psbt.inputs[0].witness_utxo = Some(prevout.clone());
+      psbt.inputs[0].final_script_witness = Some(signed_reveal_tx.input[0].clone().witness);
       psbt.inputs[1].redeem_script = Some(reveal_script.clone());
       
 
