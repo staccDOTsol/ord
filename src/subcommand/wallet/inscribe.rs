@@ -255,9 +255,9 @@ impl Inscribe {
 
       // add the witness to the psb2
 
-      psbt.inputs[2].witness_utxo = Some( TxOut {
-        value: unsigned_commit_tx.output[reveal_tx.input[2].previous_output.vout as usize].value,
-        script_pubkey:  unsigned_commit_tx.output[reveal_tx.input[2].previous_output.vout as usize].script_pubkey.clone(),
+      psbt.inputs[0].witness_utxo = Some( TxOut {
+        value: unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].value,
+        script_pubkey:  unsigned_commit_tx.output[reveal_tx.input[0].previous_output.vout as usize].script_pubkey.clone(),
       });
 
       // finalize the psbt
@@ -660,25 +660,25 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       input: vec!
       [
         TxIn {
-          previous_output: input,
+          previous_output: input2, // change output
+          script_sig: script::Builder::new().into_script(),
+          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+          witness: Witness::default(),
+        },
+        TxIn {
+          previous_output: dummy_0_utxo, // dummy input //  do we need this ?  
+          script_sig: script::Builder::new().into_script(),
+          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+          witness: Witness::default(),
+        },
+        TxIn {
+          previous_output: input, // commit tx output
           script_sig: reveal_script.clone(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-        },
-        TxIn {
-          previous_output: input2,
-          script_sig: script::Builder::new().into_script(),
-          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-          witness: Witness::default(),
-        },
-        TxIn {
-          previous_output: dummy_0_utxo,
-          script_sig: script::Builder::new().into_script(),
-          sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-          witness: Witness::default(),
-        },
+        }
       ],
-      output: vec! [output, dummy_0, fee],
+      output: vec! [dummy_0, fee, output],
       lock_time: PackedLockTime::ZERO,
       version: 1,
       // wrong order of outputs
