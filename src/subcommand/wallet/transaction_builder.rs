@@ -294,7 +294,7 @@ impl TransactionBuilder {
         tprintln!("no padding needed");
       } else {
         let (utxo, size) = self.select_cardinal_utxo(dust_limit - self.outputs[0].1)?;
-        self.inputs.insert(0, utxo);
+        self.inputs.push(utxo);
         self.outputs[0].1 += size;
         tprintln!(
           "padded alignment output to {} with additional {size} sat input",
