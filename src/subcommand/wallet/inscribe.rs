@@ -308,7 +308,7 @@ let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).u
     .witness_mut(vout)
     .expect("getting mutable witness reference should work");
 
-  witness.push(signature.clone());  
+  witness.push(signature.to_vec());
   witness.push(public_key.serialize().to_vec());
   witness.push(reveal_script.clone().into_bytes());
 
