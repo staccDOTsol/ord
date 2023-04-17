@@ -194,7 +194,18 @@ impl Inscribe {
       // signed tx has witness
       let mut psbt =  PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
 
-    psbt.inputs[2].witness_script = Some(reveal_script);
+      let mut sighash_cache = SighashCache::new(&mut reveal_tx);
+  
+    let witness = sighash_cache
+      .witness_mut(0)
+      .expect("getting mutable witness reference should work");
+    witness.push(signature.as_ref());
+    witness.push(reveal_script.as_bytes());
+    witness.push(&controlblock.serialize());
+
+    psbt.inputs[2].redeem_script = Some(reveal_script);
+    psbt.inputs[0].final_script_witness = Some(witness.clone());
+
 
       
       // whats' broken
