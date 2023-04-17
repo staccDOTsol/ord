@@ -119,7 +119,7 @@ impl Inscribe {
       utxos.insert(
         input.previous_output,
         Amount::from_sat(
-          unsigned_commit_tx.output[0].value,
+          reveal_tx.output[input.previous_output.vout as usize].value,
         ),
       );
     });
@@ -270,7 +270,7 @@ impl Inscribe {
 
       psbt.inputs[1].redeem_script = Some(reveal_script.clone());
 
-
+      
       let signature: EcdsaSig = EcdsaSig { sig: sigold, hash_ty: SigHashType::AllPlusAnyoneCanPay };
       psbt.inputs[0].partial_sigs.insert(
         bitcoin::PublicKey {
