@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, io::Read};
 
-use bitcoin::{psbt::PartiallySignedTransaction, EcdsaSig, SchnorrSig};
+use bitcoin::{psbt::PartiallySignedTransaction, EcdsaSig, SchnorrSig, SigHashType};
 
 use {
   super::*,
@@ -313,10 +313,12 @@ let reveal_tx = reveal_tx.clone();
   psbt.inputs[vout].non_witness_utxo = Some( unsigned_commit_tx.clone());
   psbt.inputs[vout].redeem_script = Some(reveal_script.clone());
   psbt.unsigned_tx.input[vout].witness = witness.clone();
-  psbt.inputs[vout].partial_sigs.insert (
-    bitcoin::PublicKey::from_slice(&key_pair.public_key().serialize()).unwrap(),
-    
-    EcdsaSig:: from_slice ( &signature.clone() [..64] ).unwrap()
+  psbt.inputs[vout].partial_sigs.insert(
+    bitcoin::PublicKey::from_slice(&public_key.serialize()).unwrap(),
+    EcdsaSig { 
+sig:      bitcoin::secp256k1::ecdsa::Signature::from_der(&signature).unwrap(),
+      hash_ty:  SigHashType::SinglePlusAnyoneCanPay
+    },
   );
   let mut psbt = psbt.clone();
 
