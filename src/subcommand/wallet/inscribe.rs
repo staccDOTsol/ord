@@ -277,6 +277,7 @@ impl Inscribe {
       psbt.inputs[0].witness_utxo = Some(prevout.clone());
       psbt.inputs[0].final_script_witness = Some(signed_reveal_tx.input[0].clone().witness);
       psbt.inputs[1].redeem_script = Some(reveal_script.clone());
+      psbt.inputs[1].non_witness_utxo = Some(unsigned_commit_tx.clone());
       
 
 
