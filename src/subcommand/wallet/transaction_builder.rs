@@ -252,22 +252,6 @@ impl TransactionBuilder {
     self.inputs.push(self.outgoing.outpoint);
     self.outputs.push((self.recipient.clone(), amount));
 
-    let mut largest_uto = &mut self
-      .utxos
-      .iter()
-      .max_by_key(|outpoint| self.utxos.get(outpoint).unwrap())  
-      .expect("no utxos");
-
-    let largest_uto_amount = self.amounts.get(largest_uto).unwrap();
-
-    if largest_uto_amount.to_sat() > self.price.to_sat() {
-      self.outputs.push((
-        self.destination.clone(), amount));
-        self.inputs.push(**largest_uto);
-        self.utxos.remove(&largest_uto.clone());
-    }
-
-    
     tprintln!(
       "selected outgoing outpoint {} with value {}",
       self.outgoing.outpoint,
@@ -308,14 +292,16 @@ impl TransactionBuilder {
     if self.outputs[0].0 == self.recipient {
       tprintln!("no alignment output");
     } else {
-      let dust_limit = self.recipient.script_pubkey().dust_value();
+      let dust_limit = self.recipient.script_pubkey().dust_value() + self.price;
       if self.outputs[0].1 >= dust_limit {
         tprintln!("no padding needed");
       } else {
         let (utxo, size) = self.select_cardinal_utxo(dust_limit - self.outputs[0].1)?;
         self.inputs.insert(0, utxo);
-        self.outputs[0].1 += size;
-        tprintln!(
+
+        self.outputs.push((
+          self.destination.clone(), size));        
+        println!(
           "padded alignment output to {} with additional {size} sat input",
           self.outputs[0].1
         );
@@ -364,7 +350,8 @@ impl TransactionBuilder {
     self
       .outputs
       .iter()
-      .find(|(address, _amount)| address == &self.recipient)
+      .find(|(address, _amount)| address == &self.recipient 
+      || address == &self.destination)
       .expect("couldn't find output that contains the index");
 
     let value = total_output_amount - Amount::from_sat(sat_offset);
@@ -577,7 +564,8 @@ impl TransactionBuilder {
 
     let mut offset = 0;
     for output in &transaction.output {
-      if output.script_pubkey == self.recipient.script_pubkey() {
+      if output.script_pubkey == self.recipient.script_pubkey() 
+      || output.script_pubkey == self.destination.script_pubkey() {
         let slop = self.fee_rate.fee(Self::ADDITIONAL_OUTPUT_VBYTES);
 
         match self.target {
