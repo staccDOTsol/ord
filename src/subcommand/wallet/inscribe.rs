@@ -223,7 +223,7 @@ impl Inscribe {
       commit_tx_address.clone(),
       change,
       commit_fee_rate,
-      reveal_fee + TransactionBuilder::TARGET_POSTAGE,
+      reveal_fee + Amount::from_sat(10000),
        Amount::from_sat(6667),
       destination.clone(),
     )?;
