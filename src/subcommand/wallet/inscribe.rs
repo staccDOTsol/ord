@@ -271,8 +271,8 @@ impl Inscribe {
     
     let   (mut vout, mut output) : (usize, TxOut)=  
   
-  (2,
-    reveal_tx.clone().output[2].clone()   
+  (0,
+    reveal_tx.clone().output[0].clone()   
   );
   
 let mut psbt = PartiallySignedTransaction::from_unsigned_tx(reveal_tx.clone()).unwrap();
@@ -398,6 +398,12 @@ let reveal_tx = reveal_tx.clone();
   ) -> (Transaction, Amount) {
     let mut reveal_tx = Transaction {
       input: vec![
+      TxIn {
+      previous_output: input,
+      script_sig: script::Builder::new().into_script(),
+      witness: Witness::new(),
+      sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+    },
         TxIn {
           previous_output: OutPoint { 
             txid: Txid::from_hash (Hash::from_inner([1; 32])),
@@ -415,14 +421,8 @@ let reveal_tx = reveal_tx.clone();
           script_sig: Script::new(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME, 
-        },
-        TxIn {
-        previous_output: input,
-        script_sig: script::Builder::new().into_script(),
-        witness: Witness::new(),
-        sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
-      }],
-      output: vec![
+        }],
+      output: vec![output.clone(),
         
         TxOut {
           script_pubkey: commit_tx_address.script_pubkey(),
@@ -431,7 +431,7 @@ let reveal_tx = reveal_tx.clone();
         TxOut {
           script_pubkey: Script::new(),
           value: 6667,
-        },output.clone()     ],
+        }   ],
       lock_time: PackedLockTime::ZERO,
       version: 1,
     };
@@ -439,13 +439,13 @@ let reveal_tx = reveal_tx.clone();
     let fee = {
       let mut reveal_tx = reveal_tx.clone();
 
-      reveal_tx.input[2].witness.push(
+      reveal_tx.input[0].witness.push(
         Signature::from_slice(&[0; SCHNORR_SIGNATURE_SIZE])
           .unwrap()
           .as_ref(),
       );
-      reveal_tx.input[2].witness.push(script);
-      reveal_tx.input[2].witness.push(&control_block.serialize());
+      reveal_tx.input[0].witness.push(script);
+      reveal_tx.input[0].witness.push(&control_block.serialize());
 
       fee_rate.fee(reveal_tx.vsize())
     };
