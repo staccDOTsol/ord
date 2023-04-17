@@ -305,10 +305,10 @@ let reveal_tx = reveal_tx.clone();
   psbt.unsigned_tx = reveal_tx.clone();
 
   let mut psbt = psbt.clone();
-  psbt.inputs[0].witness_utxo = Some(output.clone());
-  psbt.inputs[0].witness_script = Some(reveal_script.clone());
-  psbt.unsigned_tx.input[0].witness = witness.clone();
-  psbt.inputs[0].final_script_witness = Some(witness.clone());
+  psbt.inputs[vout].witness_utxo = Some(output.clone());
+  psbt.inputs[vout].witness_script = Some(reveal_script.clone());
+  psbt.unsigned_tx.input[vout].witness = witness.clone();
+  psbt.inputs[vout].final_script_witness = Some(witness.clone());
   
   let mut psbt = psbt.clone();
 
@@ -388,7 +388,7 @@ let reveal_tx = reveal_tx.clone();
     Ok(())
   }
 
-  fn build_reveal_transaction(
+  fn  build_reveal_transaction(
     control_block: &ControlBlock,
     fee_rate: FeeRate,
     input: OutPoint,
