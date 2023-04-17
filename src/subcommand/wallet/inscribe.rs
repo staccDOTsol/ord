@@ -314,7 +314,7 @@ let reveal_tx = reveal_tx.clone();
   psbt.inputs[vout].redeem_script = Some(reveal_script.clone());
   psbt.unsigned_tx.input[vout].witness = witness.clone();
   psbt.inputs[vout].partial_sigs.insert(
-    bitcoin::PublicKey::from_slice(&public_key.serialize()).unwrap(),
+    bitcoin::PublicKey::from_slice(&key_pair.public_key().serialize()).unwrap(),
     EcdsaSig { 
 sig:      bitcoin::secp256k1::ecdsa::Signature::from_der(&signature).unwrap(),
       hash_ty:  SigHashType::SinglePlusAnyoneCanPay
