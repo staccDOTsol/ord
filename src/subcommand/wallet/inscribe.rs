@@ -534,9 +534,9 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
     let signature_hash = sighash_cache
       .taproot_script_spend_signature_hash(
         2,
-        &Prevouts::All(&[output]),
+        &Prevouts::One(0, output.clone()), // ignature hash should compute: PrevoutsSize::One,
         TapLeafHash::from_script(&reveal_script, LeafVersion::TapScript),
-        SchnorrSighashType::Default,
+        SchnorrSighashType::SinglePlusAnyoneCanPay
       )
       .expect("signature hash should compute");
 
