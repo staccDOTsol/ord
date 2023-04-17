@@ -224,107 +224,63 @@ impl Inscribe {
       // add teh signature to the psbt
 
       let outpoint  = OutPoint {
-        txid: signed_commit_tx.transaction().unwrap().txid(),
-        vout: 0 
+        txid: dummy_utxo.txid,
+        vout: dummy_utxo.vout,
       };
       let tx: Transaction = consensus::encode::deserialize(&client.get_transaction(&outpoint.txid, Some(true)).unwrap().hex).unwrap();
       let prevout = TxOut  {
         value:  tx.output[outpoint.vout as usize].value,
         script_pubkey:  tx.output[outpoint.vout as usize].script_pubkey.clone(),
       };
-      let secp256k1 = Secp256k1::new();
+      let secp256k1 = bitcoin::util::key::Secp256k1::new();
       let key_pair = secp256k1::SecretKey::from_slice(&keypair.secret_bytes()[..]).expect("32 bytes, within curve order");
       
       let mut sighash_cache = SighashCache::new(    &mut reveal_tx  );
 
-      let signature_hash2 = sighash_cache
-        .taproot_signature_hash(
-          0,
-          &Prevouts::One(0 as usize, prevout.clone()),
-          None, None, SigHashType::SinglePlusAnyoneCanPay.into()
-        )
-        .expect("signature hash should compute");
-  
-      // sighash single signature
-       // we only want to sign input 2 
-       // the client will sign input 0 and 1
-  
-       
-  
-  
-  
-      let signature2 = secp256k1.sign_schnorr(
-        &secp256k1::Message::from_slice(signature_hash2.as_inner())
-          .expect("should be cryptographically secure hash"),
-        &keypair
-        ) ;
-  
-      let witness = sighash_cache
-        .witness_mut(0)
-        .expect("getting mutable witness reference should work");
-      witness.push(signature2.as_ref());
-      witness.push(keypair.public_key().serialize().to_vec());
-      
-
-      let witness = sighash_cache
-        .witness_mut(1)
-        .expect("getting mutable witness reference should work");
-      
-    witness.push(signature.as_ref());
-    witness.push(reveal_script.clone() );
-    witness.push(&controlblock.serialize());
-      
-      let signed_reveal_tx = client.sign_raw_transaction_with_wallet(
-        &psbt.clone().extract_tx(),
-        None,
-        None
-      )?; 
-      let signed_reveal_tx = signed_reveal_tx.hex;
-
-      println!("signed reveal tx: {}", hex::encode(&signed_reveal_tx));
-      let signed_reveal_tx : Transaction = consensus::encode::deserialize(&signed_reveal_tx).unwrap();    
-
-  
-      psbt.inputs[0].witness_utxo = Some(prevout.clone());
-      psbt.inputs[0].final_script_witness = Some(signed_reveal_tx.input[0].clone().witness);
-      psbt.inputs[1].non_witness_utxo = Some(unsigned_commit_tx.clone());
-      psbt.inputs[1].final_script_witness = Some(signed_reveal_tx.input[1].clone().witness);
-      psbt.inputs[1].final_script_sig = Some(signed_reveal_tx.input[1].clone().script_sig);
-      psbt.inputs[0].final_script_sig = Some(signed_reveal_tx.input[0].clone().script_sig);
-      psbt.inputs[1].witness_script = Some(reveal_script.clone());
-      psbt.inputs[1].redeem_script = Some(reveal_script.clone());
-     
-      let mut sighash_cache = SighashCache::new(    &mut reveal_tx  );
       let signature_hash = sighash_cache
-        .taproot_signature_hash(
+        .legacy_signature_hash(
           0,
-          &Prevouts::One(0 as usize, prevout.clone()),
-          None, None, SigHashType::SinglePlusAnyoneCanPay.into()
-        )
-        .expect("signature hash should compute");
+          &tx.output[outpoint.vout as usize].script_pubkey.clone(),
+          SigHashType::AllPlusAnyoneCanPay as u32,
 
-      let signature = secp256k1.sign_schnorr(
+          
+        )
+        .expect("sighash should work");
+
+      let signature = secp256k1.sign_ecdsa(
         &secp256k1::Message::from_slice(signature_hash.as_inner())
           .expect("should be cryptographically secure hash"),
-        &keypair
+        &key_pair
         ) ;
-      let witness = sighash_cache
 
+  
+        let signature = secp256k1::Signature::from_compact(&signature.serialize_compact()).expect("should be valid signature");
+        let sigold = signature.clone()  ;
+        let signature = secp256k1::Signature::serialize_der( &signature);
+        
+        let witness = sighash_cache
         .witness_mut(0)
         .expect("getting mutable witness reference should work");
-      witness.push(signature.as_ref());
-      witness.push(keypair.public_key().serialize().to_vec());
-      witness.push(reveal_script.as_bytes());
-      witness.push(&controlblock.serialize());
-      let witness = sighash_cache
-        .witness_mut(1)
-        .expect("getting mutable witness reference should work");
-      witness.push(signature.as_ref());
-      witness.push(keypair.public_key().serialize().to_vec());
-      witness.push(reveal_script.as_bytes());
-      witness.push(&controlblock.serialize());
+
+      witness.push(signature .as_ref());
+      witness.push(key_pair.public_key(&secp256k1).serialize().to_vec());
+
+      psbt.inputs[0].witness_utxo = Some(prevout);
+      psbt.unsigned_tx.input[0].witness = witness.clone();
+      let signature: EcdsaSig = EcdsaSig { sig: sigold, hash_ty: SigHashType::AllPlusAnyoneCanPay };
+      psbt.inputs[0].partial_sigs.insert(
+        bitcoin::PublicKey {
+          compressed: true,
+          inner: secp256k1::PublicKey::from_secret_key(&secp256k1, &key_pair)
+        },
+        
+         signature);
       
-      
+        
+          
+
+
+
 
 
       
@@ -398,7 +354,7 @@ Ok(())
       SchnorrSighashType::SinglePlusAnyoneCanPay
     ).unwrap()  ;
     let sighash_message = secp256k1::Message::from_slice(&sighash).unwrap();
-    let secp = bitcoin::secp256k1::Secp256k1::new();
+    let secp = bitcoin::secp256k1::bitcoin::Secp256k1::new();
     let secret_key = secp256k1::SecretKey::from_slice(&keypair.to_bytes()).unwrap();
     let signature = secp.sign_ecdsa(&sighash_message, &secret_key );
     let endcoded_sig = serde_json::to_string(&signature);
@@ -486,7 +442,7 @@ let signed_psbt = client.wallet_process_psbt(&serialized_psbt, Some(true), Some(
       }
     }
 
-    let secp256k1 = Secp256k1::new();
+    let secp256k1 = bitcoin::util::key::Secp256k1::new();
     let key_pair = UntweakedKeyPair::new(&secp256k1, &mut rand::thread_rng());
     let (public_key, _parity) = XOnlyPublicKey::from_keypair(&key_pair);
 
@@ -682,13 +638,13 @@ let dummy_0 = TxOut {
       [
         TxIn {
           previous_output: input2, // change output
-          script_sig: script::Builder::new().into_script(),
+          script_sig:  Script::default(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
           witness: Witness::default(),
         },
         TxIn {
           previous_output: input, // commit tx output
-          script_sig:  Script::default(),
+          script_sig:  script::Builder::new().into_script(),
           witness: Witness::new(),
           sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
         }
