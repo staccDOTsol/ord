@@ -168,23 +168,6 @@ impl Index {
           .map(|x| x.value())
           .unwrap_or(0);
 
-        match schema_version.cmp(&SCHEMA_VERSION) {
-          cmp::Ordering::Less =>
-            bail!(
-              "index at `{}` appears to have been built with an older, incompatible version of ord, consider deleting and rebuilding the index: index schema {schema_version}, ord schema {SCHEMA_VERSION}",
-              path.display()
-            ),
-          cmp::Ordering::Greater =>
-            bail!(
-              "index at `{}` appears to have been built with a newer, incompatible version of ord, consider updating ord: index schema {schema_version}, ord schema {SCHEMA_VERSION}",
-              path.display()
-            ),
-          cmp::Ordering::Equal => {
-          }
-        }
-
-        database
-      }
       Err(_) => {
         let database = Database::builder().create(&path)?;
 
