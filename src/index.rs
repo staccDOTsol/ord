@@ -168,7 +168,7 @@ impl Index {
     Ok(Self {
       genesis_block_coinbase_txid: genesis_block_coinbase_transaction.txid(),
       client,
-      database,
+      database: database.unwrap(),
       path,
       first_inscription_height: options.first_inscription_height(),
       genesis_block_coinbase_transaction,
