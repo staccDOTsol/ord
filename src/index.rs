@@ -159,50 +159,8 @@ impl Index {
       data_dir.join("index.redb")
     };
 
-    let database = match Database::open(&path) {
-      Ok(database) => {
-        let schema_version = database
-          .begin_read()?
-          .open_table(STATISTIC_TO_COUNT)?
-          .get(&Statistic::Schema.key())?
-          .map(|x| x.value())
-          .unwrap_or(0);
-
-      Err(_) => {
-        let database = Database::builder().create(&path)?;
-
-        let mut tx = database.begin_write()?;
-
-        if cfg!(test) {
-          tx.set_durability(redb::Durability::None);
-        } else {
-          tx.set_durability(redb::Durability::Immediate);
-        };
-
-        tx.open_table(HEIGHT_TO_BLOCK_HASH)?;
-        tx.open_table(INSCRIPTION_ID_TO_INSCRIPTION_ENTRY)?;
-        tx.open_table(INSCRIPTION_ID_TO_SATPOINT)?;
-        tx.open_table(INSCRIPTION_NUMBER_TO_INSCRIPTION_ID)?;
-        tx.open_table(OUTPOINT_TO_VALUE)?;
-        tx.open_table(REINSCRIPTION_ID_TO_SEQUENCE_NUMBER)?;
-        tx.open_multimap_table(SATPOINT_TO_INSCRIPTION_ID)?;
-        tx.open_multimap_table(SAT_TO_INSCRIPTION_ID)?;
-        tx.open_table(SAT_TO_SATPOINT)?;
-        tx.open_table(WRITE_TRANSACTION_STARTING_BLOCK_COUNT_TO_TIMESTAMP)?;
-
-        tx.open_table(STATISTIC_TO_COUNT)?
-          .insert(&Statistic::Schema.key(), &SCHEMA_VERSION)?;
-
-        if options.index_sats {
-          tx.open_table(OUTPOINT_TO_SAT_RANGES)?
-            .insert(&OutPoint::null().store(), [].as_slice())?;
-        }
-
-        tx.commit()?;
-
-        database
-      }
-    };
+    let database =  Database::open(&path);
+      
 
     let genesis_block_coinbase_transaction =
       options.chain().genesis_block().coinbase().unwrap().clone();
