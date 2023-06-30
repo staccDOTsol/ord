@@ -23,7 +23,7 @@ impl TestServer {
       .unwrap()
       .port();
 
-    let child = Command::new(executable_path("ord")).args(format!(
+    let child = Command::new(executable_path("journal")).args(format!(
       "--rpc-url {} --bitcoin-data-dir {} --data-dir {} {} server --http-port {port} --address 127.0.0.1",
       rpc_server.url(),
       tempdir.path().display(),

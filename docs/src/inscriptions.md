@@ -42,7 +42,7 @@ follows:
 ```
 OP_FALSE
 OP_IF
-  OP_PUSH "ord"
+  OP_PUSH "journal"
   OP_PUSH 1
   OP_PUSH "text/plain;charset=utf-8"
   OP_PUSH 0

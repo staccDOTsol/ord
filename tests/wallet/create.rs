@@ -4,13 +4,13 @@ use super::*;
 fn create() {
   let rpc_server = test_bitcoincore_rpc::spawn();
 
-  assert!(!rpc_server.wallets().contains("ord"));
+  assert!(!rpc_server.wallets().contains("journal"));
 
   CommandBuilder::new("wallet create")
     .rpc_server(&rpc_server)
     .run_and_check_output::<Create>();
 
-  assert!(rpc_server.wallets().contains("ord"));
+  assert!(rpc_server.wallets().contains("journal"));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn detect_wrong_descriptors() {
   CommandBuilder::new("wallet transactions")
     .rpc_server(&rpc_server)
     .stderr_regex(
-      r#"error: wallet "ord" contains unexpected output descriptors, and does not appear to be an `ord` wallet, create a new wallet with `ord wallet create`\n"#,
+      r#"error: wallet "journal" contains unexpected output descriptors, and does not appear to be an `ord` wallet, create a new wallet with `ord wallet create`\n"#,
     )
     .expected_exit_code(1)
     .run_and_extract_stdout();

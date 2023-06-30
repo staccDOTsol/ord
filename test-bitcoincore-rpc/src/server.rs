@@ -550,7 +550,7 @@ impl Api for Server {
 
   fn list_descriptors(&self) -> Result<ListDescriptorsResult, jsonrpc_core::Error> {
     Ok(ListDescriptorsResult {
-      wallet_name: "ord".into(),
+      wallet_name: "journal".into(),
       descriptors: self
         .state()
         .descriptors

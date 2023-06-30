@@ -318,7 +318,7 @@ fn server_runs_with_rpc_user_and_pass_as_env_vars() {
     .unwrap()
     .port();
 
-  let mut child = Command::new(executable_path("ord"))
+  let mut child = Command::new(executable_path("journal"))
     .args(format!(
       "--rpc-url {} --bitcoin-data-dir {} --data-dir {} server --http-port {port} --address 127.0.0.1",
       rpc_server.url(),

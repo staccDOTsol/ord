@@ -379,7 +379,7 @@ mod tests {
   #[test]
   fn reveal_transaction_pays_fee() {
     let utxos = vec![(outpoint(1), Amount::from_sat(20000))];
-    let inscription = inscription("text/plain", "ord");
+    let inscription = inscription("text/plain", "journal");
     let commit_address = change(0);
     let reveal_address = recipient();
 
@@ -410,7 +410,7 @@ mod tests {
   #[test]
   fn inscript_tansactions_opt_in_to_rbf() {
     let utxos = vec![(outpoint(1), Amount::from_sat(20000))];
-    let inscription = inscription("text/plain", "ord");
+    let inscription = inscription("text/plain", "journal");
     let commit_address = change(0);
     let reveal_address = recipient();
 
@@ -444,7 +444,7 @@ mod tests {
       inscription_id(1),
     );
 
-    let inscription = inscription("text/plain", "ord");
+    let inscription = inscription("text/plain", "journal");
     let satpoint = None;
     let commit_address = change(0);
     let reveal_address = recipient();
@@ -486,7 +486,7 @@ mod tests {
       inscription_id(1),
     );
 
-    let inscription = inscription("text/plain", "ord");
+    let inscription = inscription("text/plain", "journal");
     let satpoint = None;
     let commit_address = change(0);
     let reveal_address = recipient();
@@ -521,7 +521,7 @@ mod tests {
       inscription_id(1),
     );
 
-    let inscription = inscription("text/plain", "ord");
+    let inscription = inscription("text/plain", "journal");
     let satpoint = None;
     let commit_address = change(0);
     let reveal_address = recipient();
@@ -582,7 +582,7 @@ mod tests {
       inscription_id(1),
     );
 
-    let inscription = inscription("text/plain", "ord");
+    let inscription = inscription("text/plain", "journal");
     let satpoint = None;
     let commit_address = change(0);
     let reveal_address = recipient();

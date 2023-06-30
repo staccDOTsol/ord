@@ -1219,7 +1219,7 @@ dependencies = [
  "arbitrary",
  "bitcoin",
  "libfuzzer-sys",
- "ord",
+ "journal",
 ]
 
 [[package]]
@@ -1846,7 +1846,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
-name = "ord"
+name = "journal"
 version = "0.4.0"
 dependencies = [
  "anyhow",

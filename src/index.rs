@@ -1011,7 +1011,7 @@ mod tests {
       fs::write(&cookie_file, "username:password").unwrap();
 
       let command: Vec<OsString> = vec![
-        "ord".into(),
+        "journal".into(),
         "--rpc-url".into(),
         rpc_server.url().into(),
         "--data-dir".into(),
@@ -2426,7 +2426,7 @@ mod tests {
       context.mine_blocks(1);
       context.mine_blocks(1);
 
-      let witness = envelope(&[b"ord", &[1], b"text/plain;charset=utf-8", &[], b"bar"]);
+      let witness = envelope(&[b"journal", &[1], b"text/plain;charset=utf-8", &[], b"bar"]);
 
       let txid = context.rpc_server.broadcast_tx(TransactionTemplate {
         inputs: &[(1, 0, 0), (2, 0, 0), (3, 0, 0)],
@@ -2507,7 +2507,7 @@ mod tests {
       let script = script::Builder::new()
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2515,7 +2515,7 @@ mod tests {
         .push_opcode(opcodes::all::OP_ENDIF)
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2523,7 +2523,7 @@ mod tests {
         .push_opcode(opcodes::all::OP_ENDIF)
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2614,7 +2614,7 @@ mod tests {
       let script = script::Builder::new()
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2622,7 +2622,7 @@ mod tests {
         .push_opcode(opcodes::all::OP_ENDIF)
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2630,7 +2630,7 @@ mod tests {
         .push_opcode(opcodes::all::OP_ENDIF)
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2719,7 +2719,7 @@ mod tests {
       let script = script::Builder::new()
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2727,7 +2727,7 @@ mod tests {
         .push_opcode(opcodes::all::OP_ENDIF)
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2735,7 +2735,7 @@ mod tests {
         .push_opcode(opcodes::all::OP_ENDIF)
         .push_opcode(opcodes::OP_FALSE)
         .push_opcode(opcodes::all::OP_IF)
-        .push_slice(b"ord")
+        .push_slice(b"journal")
         .push_slice(&[1])
         .push_slice(b"text/plain;charset=utf-8")
         .push_slice(&[])
@@ -2785,7 +2785,7 @@ mod tests {
       context.mine_blocks(1);
       context.mine_blocks(1);
 
-      let witness = envelope(&[b"ord", &[1], b"text/plain;charset=utf-8", &[], b"bar"]);
+      let witness = envelope(&[b"journal", &[1], b"text/plain;charset=utf-8", &[], b"bar"]);
 
       let cursed_txid = context.rpc_server.broadcast_tx(TransactionTemplate {
         inputs: &[(1, 0, 0), (2, 0, 0)],
@@ -2824,7 +2824,7 @@ mod tests {
       );
 
       let witness = envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
@@ -2868,7 +2868,7 @@ mod tests {
       context.mine_blocks(1);
       context.mine_blocks(1);
 
-      let witness = envelope(&[b"ord", &[1], b"text/plain;charset=utf-8", &[], b"bar"]);
+      let witness = envelope(&[b"journal", &[1], b"text/plain;charset=utf-8", &[], b"bar"]);
 
       let cursed_txid = context.rpc_server.broadcast_tx(TransactionTemplate {
         inputs: &[(1, 0, 0), (2, 0, 0)],
@@ -2907,7 +2907,7 @@ mod tests {
       );
 
       let witness = envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
@@ -2944,7 +2944,7 @@ mod tests {
       );
 
       let witness = envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],

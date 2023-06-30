@@ -12,7 +12,7 @@ fn transactions() {
     .run_and_check_output::<Vec<Output>>();
 
   assert_eq!(rpc_server.loaded_wallets().len(), 1);
-  assert_eq!(rpc_server.loaded_wallets().first().unwrap(), "ord");
+  assert_eq!(rpc_server.loaded_wallets().first().unwrap(), "journal");
 
   rpc_server.mine_blocks(1);
 

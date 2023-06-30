@@ -1,5 +1,5 @@
 [package]
-name = "ord"
+name = "journal"
 description = "◉ Ordinal wallet and block explorer"
 version = "0.7.0"
 license = "CC0-1.0"
@@ -66,11 +66,11 @@ test-bitcoincore-rpc = { path = "test-bitcoincore-rpc" }
 unindent = "0.2.1"
 
 [[bin]]
-name = "ord"
+name = "journal"
 path = "src/bin/main.rs"
 
 [lib]
-name = "ord"
+name = "journal"
 path = "src/lib.rs"
 
 [[test]]

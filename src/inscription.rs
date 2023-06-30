@@ -20,7 +20,7 @@ const INSCRIPTION_ENVELOPE_HEADER: [bitcoin::blockdata::script::Instruction<'sta
   Instruction::Op(opcodes::all::OP_IF),
   Instruction::PushBytes(PROTOCOL_ID),
 ];
-const PROTOCOL_ID: &[u8] = b"ord";
+const PROTOCOL_ID: &[u8] = b"journal";
 const BODY_TAG: &[u8] = &[];
 const CONTENT_TYPE_TAG: &[u8] = &[1];
 
@@ -384,13 +384,13 @@ mod tests {
   fn duplicate_field() {
     assert_eq!(
       InscriptionParser::parse(&envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
-        b"ord",
+        b"journal",
       ])),
       Err(InscriptionError::InvalidInscription),
     );
@@ -400,13 +400,13 @@ mod tests {
   fn valid() {
     assert_eq!(
       InscriptionParser::parse(&envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
-        b"ord",
+        b"journal",
       ])),
-      Ok(vec![inscription("text/plain;charset=utf-8", "ord")]),
+      Ok(vec![inscription("text/plain;charset=utf-8", "journal")]),
     );
   }
 
@@ -414,22 +414,22 @@ mod tests {
   fn valid_with_unknown_tag() {
     assert_eq!(
       InscriptionParser::parse(&envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[3],
         b"bar",
         &[],
-        b"ord",
+        b"journal",
       ])),
-      Ok(vec![inscription("text/plain;charset=utf-8", "ord")]),
+      Ok(vec![inscription("text/plain;charset=utf-8", "journal")]),
     );
   }
 
   #[test]
   fn no_content_tag() {
     assert_eq!(
-      InscriptionParser::parse(&envelope(&[b"ord", &[1], b"text/plain;charset=utf-8"])),
+      InscriptionParser::parse(&envelope(&[b"journal", &[1], b"text/plain;charset=utf-8"])),
       Ok(vec![Inscription {
         content_type: Some(b"text/plain;charset=utf-8".to_vec()),
         body: None,
@@ -440,7 +440,7 @@ mod tests {
   #[test]
   fn no_content_type() {
     assert_eq!(
-      InscriptionParser::parse(&envelope(&[b"ord", &[], b"foo"])),
+      InscriptionParser::parse(&envelope(&[b"journal", &[], b"foo"])),
       Ok(vec![Inscription {
         content_type: None,
         body: Some(b"foo".to_vec()),
@@ -452,7 +452,7 @@ mod tests {
   fn valid_body_in_multiple_pushes() {
     assert_eq!(
       InscriptionParser::parse(&envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
@@ -466,7 +466,7 @@ mod tests {
   #[test]
   fn valid_body_in_zero_pushes() {
     assert_eq!(
-      InscriptionParser::parse(&envelope(&[b"ord", &[1], b"text/plain;charset=utf-8", &[]])),
+      InscriptionParser::parse(&envelope(&[b"journal", &[1], b"text/plain;charset=utf-8", &[]])),
       Ok(vec![inscription("text/plain;charset=utf-8", "")]),
     );
   }
@@ -475,7 +475,7 @@ mod tests {
   fn valid_body_in_multiple_empty_pushes() {
     assert_eq!(
       InscriptionParser::parse(&envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
@@ -494,18 +494,18 @@ mod tests {
     let script = script::Builder::new()
       .push_opcode(opcodes::OP_FALSE)
       .push_opcode(opcodes::all::OP_IF)
-      .push_slice(b"ord")
+      .push_slice(b"journal")
       .push_slice(&[1])
       .push_slice(b"text/plain;charset=utf-8")
       .push_slice(&[])
-      .push_slice(b"ord")
+      .push_slice(b"journal")
       .push_opcode(opcodes::all::OP_ENDIF)
       .push_opcode(opcodes::all::OP_CHECKSIG)
       .into_script();
 
     assert_eq!(
       InscriptionParser::parse(&Witness::from_vec(vec![script.into_bytes(), Vec::new()])),
-      Ok(vec![inscription("text/plain;charset=utf-8", "ord")]),
+      Ok(vec![inscription("text/plain;charset=utf-8", "journal")]),
     );
   }
 
@@ -515,17 +515,17 @@ mod tests {
       .push_opcode(opcodes::all::OP_CHECKSIG)
       .push_opcode(opcodes::OP_FALSE)
       .push_opcode(opcodes::all::OP_IF)
-      .push_slice(b"ord")
+      .push_slice(b"journal")
       .push_slice(&[1])
       .push_slice(b"text/plain;charset=utf-8")
       .push_slice(&[])
-      .push_slice(b"ord")
+      .push_slice(b"journal")
       .push_opcode(opcodes::all::OP_ENDIF)
       .into_script();
 
     assert_eq!(
       InscriptionParser::parse(&Witness::from_vec(vec![script.into_bytes(), Vec::new()])),
-      Ok(vec![inscription("text/plain;charset=utf-8", "ord")]),
+      Ok(vec![inscription("text/plain;charset=utf-8", "journal")]),
     );
   }
 
@@ -534,7 +534,7 @@ mod tests {
     let script = script::Builder::new()
       .push_opcode(opcodes::OP_FALSE)
       .push_opcode(opcodes::all::OP_IF)
-      .push_slice(b"ord")
+      .push_slice(b"journal")
       .push_slice(&[1])
       .push_slice(b"text/plain;charset=utf-8")
       .push_slice(&[])
@@ -542,7 +542,7 @@ mod tests {
       .push_opcode(opcodes::all::OP_ENDIF)
       .push_opcode(opcodes::OP_FALSE)
       .push_opcode(opcodes::all::OP_IF)
-      .push_slice(b"ord")
+      .push_slice(b"journal")
       .push_slice(&[1])
       .push_slice(b"text/plain;charset=utf-8")
       .push_slice(&[])
@@ -563,7 +563,7 @@ mod tests {
   fn invalid_utf8_does_not_render_inscription_invalid() {
     assert_eq!(
       InscriptionParser::parse(&envelope(&[
-        b"ord",
+        b"journal",
         &[1],
         b"text/plain;charset=utf-8",
         &[],
@@ -578,7 +578,7 @@ mod tests {
     let script = script::Builder::new()
       .push_opcode(opcodes::OP_FALSE)
       .push_opcode(opcodes::all::OP_IF)
-      .push_slice("ord".as_bytes())
+      .push_slice("journal".as_bytes())
       .into_script();
 
     assert_eq!(
@@ -591,7 +591,7 @@ mod tests {
   fn no_op_false() {
     let script = script::Builder::new()
       .push_opcode(opcodes::all::OP_IF)
-      .push_slice("ord".as_bytes())
+      .push_slice("journal".as_bytes())
       .push_opcode(opcodes::all::OP_ENDIF)
       .into_script();
 
@@ -620,7 +620,7 @@ mod tests {
         previous_output: OutPoint::null(),
         script_sig: Script::new(),
         sequence: Sequence(0),
-        witness: envelope(&[b"ord", &[1], b"text/plain;charset=utf-8", &[], b"ord"]),
+        witness: envelope(&[b"journal", &[1], b"text/plain;charset=utf-8", &[], b"journal"]),
       }],
       output: Vec::new(),
     };
@@ -629,7 +629,7 @@ mod tests {
       Inscription::from_transaction(&tx),
       vec![transaction_inscription(
         "text/plain;charset=utf-8",
-        "ord",
+        "journal",
         0,
         0
       )],
@@ -696,7 +696,7 @@ mod tests {
   #[test]
   fn inscribe_png() {
     assert_eq!(
-      InscriptionParser::parse(&envelope(&[b"ord", &[1], b"image/png", &[], &[1; 100]])),
+      InscriptionParser::parse(&envelope(&[b"journal", &[1], b"image/png", &[], &[1; 100]])),
       Ok(vec![inscription("image/png", [1; 100])]),
     );
   }
@@ -792,7 +792,7 @@ mod tests {
   #[test]
   fn unknown_odd_fields_are_ignored() {
     assert_eq!(
-      InscriptionParser::parse(&envelope(&[b"ord", &[3], &[0]])),
+      InscriptionParser::parse(&envelope(&[b"journal", &[3], &[0]])),
       Ok(vec![Inscription {
         content_type: None,
         body: None,
@@ -803,7 +803,7 @@ mod tests {
   #[test]
   fn unknown_even_fields_are_invalid() {
     assert_eq!(
-      InscriptionParser::parse(&envelope(&[b"ord", &[2], &[0]])),
+      InscriptionParser::parse(&envelope(&[b"journal", &[2], &[0]])),
       Err(InscriptionError::UnrecognizedEvenField),
     );
   }

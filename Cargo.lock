@@ -1749,6 +1749,61 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
 
 [[package]]
+name = "journal"
+version = "0.7.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-server",
+ "base64 0.21.0",
+ "bech32",
+ "bip39",
+ "bitcoin",
+ "boilerplate",
+ "brotlic",
+ "chrono",
+ "clap",
+ "ctrlc",
+ "derive_more",
+ "dirs",
+ "env_logger",
+ "executable-path",
+ "futures",
+ "hex",
+ "html-escaper",
+ "http",
+ "hyper",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "mime",
+ "mime_guess",
+ "miniscript",
+ "mp4",
+ "ord-bitcoincore-rpc",
+ "pretty_assertions",
+ "pulldown-cmark",
+ "redb",
+ "regex",
+ "reqwest",
+ "rss",
+ "rust-embed",
+ "rustls",
+ "rustls-acme",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sys-info",
+ "tempfile",
+ "test-bitcoincore-rpc",
+ "tokio",
+ "tokio-stream",
+ "tokio-util 0.7.8",
+ "tower-http",
+ "unindent",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2177,61 +2232,6 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
-
-[[package]]
-name = "ord"
-version = "0.7.0"
-dependencies = [
- "anyhow",
- "axum",
- "axum-server",
- "base64 0.21.0",
- "bech32",
- "bip39",
- "bitcoin",
- "boilerplate",
- "brotlic",
- "chrono",
- "clap",
- "ctrlc",
- "derive_more",
- "dirs",
- "env_logger",
- "executable-path",
- "futures",
- "hex",
- "html-escaper",
- "http",
- "hyper",
- "indicatif",
- "lazy_static",
- "log",
- "mime",
- "mime_guess",
- "miniscript",
- "mp4",
- "ord-bitcoincore-rpc",
- "pretty_assertions",
- "pulldown-cmark",
- "redb",
- "regex",
- "reqwest",
- "rss",
- "rust-embed",
- "rustls",
- "rustls-acme",
- "serde",
- "serde_json",
- "serde_yaml",
- "sys-info",
- "tempfile",
- "test-bitcoincore-rpc",
- "tokio",
- "tokio-stream",
- "tokio-util 0.7.8",
- "tower-http",
- "unindent",
-]
 
 [[package]]
 name = "ord-bitcoincore-rpc"
