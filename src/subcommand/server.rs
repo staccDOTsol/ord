@@ -868,7 +868,10 @@ impl Server {
         )
       
       },
-      Media::Unknown => Ok(PreviewUnknownHtml.into_response()),
+      Media::Unknown => Ok(
+        Self::content_response(inscription)
+          .ok_or_not_found(|| format!("inscription {inscription_id} content"))?
+          .into_response()),
       Media::Video => Ok(PreviewVideoHtml { inscription_id }.into_response()),
     }
   }
