@@ -177,14 +177,15 @@ impl Server {
         .layer(Extension(index))
         .layer(Extension(page_config))
         .layer(Extension(Arc::new(config)))
+        /* extremelyunsafeordinals.com
         .layer(SetResponseHeaderLayer::if_not_present(
-          header::CONTENT_SECURITY_POLICY,
+          header::CACHE_STATUS,
           HeaderValue::from_static("default-src 'self'"),
         ))
         .layer(SetResponseHeaderLayer::overriding(
           header::STRICT_TRANSPORT_SECURITY,
           HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
-        ))
+        )) */
         .layer(
           CorsLayer::new()
             .allow_methods([http::Method::GET])
@@ -365,8 +366,8 @@ impl Server {
     Ok(
       (
         [(
-          header::CONTENT_SECURITY_POLICY,
-          HeaderValue::from_static("default-src 'unsafe-inline'"),
+          header::CACHE_STATUS,
+          HeaderValue::from_static( "default-src 'unsafe-inline'"),
         )],
         ClockSvg::new(Self::index_height(&index)?),
       )
@@ -611,7 +612,7 @@ impl Server {
       Ok(
         (
           [(
-            header::CONTENT_SECURITY_POLICY,
+            header::CACHE_STATUS,
             HeaderValue::from_static("default-src 'unsafe-inline'"),
           )],
           Self::static_asset(Path("/favicon.svg".to_string())).await?,
@@ -653,7 +654,7 @@ impl Server {
         [
           (header::CONTENT_TYPE, "application/rss+xml"),
           (
-            header::CONTENT_SECURITY_POLICY,
+            header::CACHE_STATUS,
             "default-src 'unsafe-inline'",
           ),
         ],
@@ -789,11 +790,11 @@ impl Server {
         .unwrap(),
     );
     headers.insert(
-      header::CONTENT_SECURITY_POLICY,
+      header::CACHE_STATUS,
       HeaderValue::from_static("default-src 'unsafe-eval' 'unsafe-inline'  data: blob:"),
     );
     headers.append(
-      header::CONTENT_SECURITY_POLICY,
+      header::CACHE_STATUS,
       HeaderValue::from_static("default-src *:*/content/ *:*/blockheight *:*/blockhash *:*/blockhash/ *:*/blocktime 'unsafe-eval' 'unsafe-inline' data: blob:"),
     );
     headers.insert(
@@ -835,7 +836,7 @@ impl Server {
       Media::Image => Ok(
         (
           [(
-            header::CONTENT_SECURITY_POLICY,
+            header::CACHE_STATUS,
             "default-src 'self' 'unsafe-inline'",
           )],
           PreviewImageHtml { inscription_id },
@@ -845,7 +846,7 @@ impl Server {
       Media::Pdf => Ok(
         (
           [(
-            header::CONTENT_SECURITY_POLICY,
+            header::CACHE_STATUS,
             "script-src-elem 'self' https://cdn.jsdelivr.net",
           )],
           PreviewPdfHtml { inscription_id },
@@ -1150,7 +1151,7 @@ mod tests {
       &self,
       path: impl AsRef<str>,
       status: StatusCode,
-      content_security_policy: &str,
+      CACHE_STATUS: &str,
       regex: impl AsRef<str>,
     ) {
       let response = self.get(path);
@@ -1158,9 +1159,9 @@ mod tests {
       assert_eq!(
         response
           .headers()
-          .get(header::CONTENT_SECURITY_POLICY,)
+          .get(header::CACHE_STATUS,)
           .unwrap(),
-        content_security_policy
+        CACHE_STATUS
       );
       assert_regex_match!(response.text().unwrap(), regex.as_ref());
     }
