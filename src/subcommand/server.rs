@@ -800,8 +800,16 @@ impl Server {
       header::CACHE_CONTROL,
       HeaderValue::from_static("max-age=31536000, immutable"),
     );
+    let mut content = inscription.clone() 
+    .into_body().unwrap();
+    let mut decoded_input = Vec::new();
 
-    Some((headers, inscription.into_body()?))
+  let mut decompressed_reader = DecompressorReader::new(content.as_ref());
+  
+  decompressed_reader.read_to_end(&mut decoded_input)
+  .map_err(|err| anyhow!("Failed to decode  text: {err}"));
+
+    Some((headers, decoded_input))
   }
 
   async fn preview(
