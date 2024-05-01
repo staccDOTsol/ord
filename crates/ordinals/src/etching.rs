@@ -1,5 +1,6 @@
-use super::*;
+use self::liquidity_pool::LiquidityPoolData;
 
+use super::*;
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Copy, Clone, Eq)]
 pub struct Etching {
   pub divisibility: Option<u8>,
@@ -9,6 +10,7 @@ pub struct Etching {
   pub symbol: Option<char>,
   pub terms: Option<Terms>,
   pub turbo: bool,
+  pub lp: Option<LiquidityPoolData>,
 }
 
 impl Etching {

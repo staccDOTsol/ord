@@ -18,7 +18,7 @@ maintainer = "The Ord Maintainers"
 members = [".", "crates/*"]
 
 [dependencies]
-anyhow = { version = "1.0.56", features = ["backtrace"] }
+anyhow = "1.0.82"
 async-trait = "0.1.72"
 axum = { version = "0.6.1", features = ["http2"] }
 axum-server = "0.5.0"

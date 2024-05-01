@@ -41,6 +41,7 @@ pub(crate) struct Updater<'index> {
 }
 
 impl<'index> Updater<'index> {
+
   pub(crate) fn update_index(&mut self, mut wtx: WriteTransaction) -> Result {
     let start = Instant::now();
     let starting_height = u32::try_from(self.index.client.get_block_count()?).unwrap() + 1;
@@ -584,7 +585,7 @@ impl<'index> Updater<'index> {
       let mut rune_to_rune_id = wtx.open_table(RUNE_TO_RUNE_ID)?;
       let mut sequence_number_to_rune_id = wtx.open_table(SEQUENCE_NUMBER_TO_RUNE_ID)?;
       let mut transaction_id_to_rune = wtx.open_table(TRANSACTION_ID_TO_RUNE)?;
-
+      let mut liquidity_pools = wtx.open_table(LIQUIDITY_POOLS)?;
       let runes = statistic_to_count
         .get(&Statistic::Runes.into())?
         .map(|x| x.value())
@@ -608,6 +609,7 @@ impl<'index> Updater<'index> {
         sequence_number_to_rune_id: &mut sequence_number_to_rune_id,
         statistic_to_count: &mut statistic_to_count,
         transaction_id_to_rune: &mut transaction_id_to_rune,
+        liquidity_pools: &mut liquidity_pools,
       };
 
       for (i, (tx, txid)) in block.txdata.iter().enumerate() {

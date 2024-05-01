@@ -455,6 +455,7 @@ impl Plan {
       let inner = Runestone {
         edicts: Vec::new(),
         etching: Some(ordinals::Etching {
+          lp: None,
           divisibility: (etching.divisibility > 0).then_some(etching.divisibility),
           premine: (premine > 0).then_some(premine),
           rune: Some(etching.rune.rune),
@@ -480,6 +481,7 @@ impl Plan {
           turbo: etching.turbo,
         }),
         mint: None,
+        lp: None,
         pointer: (premine > 0).then_some((reveal_outputs.len() - 1).try_into().unwrap()),
       };
 

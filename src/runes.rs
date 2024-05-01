@@ -18,7 +18,6 @@ impl Display for MintError {
     }
   }
 }
-
 #[cfg(test)]
 mod tests {
   use {super::*, crate::index::testing::Context};
@@ -844,6 +843,7 @@ mod tests {
           symbol: Some('$'),
           spacers: Some(1),
           turbo: true,
+          lp: None,
         }),
         pointer: Some(10),
         ..default()

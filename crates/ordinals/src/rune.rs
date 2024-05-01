@@ -7,7 +7,9 @@ pub struct Rune(pub u128);
 
 impl Rune {
   const RESERVED: u128 = 6402364363415443603228541259936211926;
-
+  pub fn as_u128(&self) -> u128 {
+    self.0
+  }
   const STEPS: &'static [u128] = &[
     0,
     26,

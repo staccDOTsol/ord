@@ -1,3 +1,5 @@
+use self::liquidity_pool::LiquidityPoolData;
+
 use super::*;
 
 #[derive(Copy, Clone, Debug)]
@@ -22,6 +24,9 @@ pub(super) enum Tag {
   Symbol = 5,
   #[allow(unused)]
   Nop = 127,
+  Lp = 24,
+  LpId = 26,
+  Operation = 28,
 }
 
 impl Tag {
@@ -48,7 +53,15 @@ impl Tag {
 
     Some(value)
   }
-
+  pub(super) fn encode_lp(self, lp_data: Option<LiquidityPoolData>, payload: &mut Vec<u8>) {
+    if let Some(lp_data) = lp_data {
+      let LiquidityPoolData { id, asset1, asset2, balance1, balance2, operation } = lp_data;
+      if let Some(operation) = operation {
+        self.encode([id.into(), asset1.as_u128(), asset2.as_u128(), balance1, balance2], payload);
+        operation.encode(payload);
+      }
+    }
+  }
   pub(super) fn encode<const N: usize>(self, values: [u128; N], payload: &mut Vec<u8>) {
     for value in values {
       varint::encode_to_vec(self.into(), payload);
@@ -61,6 +74,7 @@ impl Tag {
       self.encode([value.into()], payload)
     }
   }
+
 }
 
 impl From<Tag> for u128 {

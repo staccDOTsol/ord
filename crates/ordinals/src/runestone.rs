@@ -1,4 +1,4 @@
-use {super::*, flag::Flag, message::Message, tag::Tag};
+use {self::liquidity_pool::{LiquidityOperation, LiquidityPoolData}, super::*, flag::Flag, message::Message, tag::Tag};
 
 mod flag;
 mod message;
@@ -10,6 +10,7 @@ pub struct Runestone {
   pub etching: Option<Etching>,
   pub mint: Option<RuneId>,
   pub pointer: Option<u32>,
+  pub lp: Option<LiquidityPoolData>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -21,7 +22,7 @@ enum Payload {
 impl Runestone {
   pub const MAGIC_NUMBER: opcodes::All = opcodes::all::OP_PUSHNUM_13;
   pub const COMMIT_CONFIRMATIONS: u16 = 6;
-
+ 
   pub fn decipher(transaction: &Transaction) -> Option<Artifact> {
     let payload = match Runestone::payload(transaction) {
       Some(Payload::Valid(payload)) => payload,
@@ -50,7 +51,37 @@ impl Runestone {
     let mut flags = Tag::Flags
       .take(&mut fields, |[flags]| Some(flags))
       .unwrap_or_default();
-
+    let lp_id = Tag::LpId.take(&mut fields, |[id]| Some(id));
+    let mut lp = None;
+    let operation = Tag::Operation.take(&mut fields, |[operation]| {
+      let operation: bool = operation == 1;
+      Some(operation)
+    });
+    let operation = operation.unwrap_or_default();
+    if let Some(lp_id) = lp_id {
+         lp = Tag::Lp.take(&mut fields, |[_id, asset1, asset2, balance1, balance2]| {
+            Some(LiquidityPoolData {
+                id: lp_id as u64,
+                operation: if operation {
+                  Some(LiquidityOperation::AddLiquidity {
+                    rune_id: Rune(asset1),
+                    amount_1: balance1.into(),
+                    amount_2: balance2.into(),
+                  })
+                } else {
+                  Some(LiquidityOperation::RemoveLiquidity {
+                    rune_id: Rune(asset1),
+                    amount_1: balance1.into(),
+                    amount_2: balance2.into(),
+                  })
+                },
+                asset1: Rune(asset1),
+                asset2: Rune(asset2),
+                balance1: balance1.into(),
+                balance2: balance2.into(),
+            })
+        });
+    }
     let etching = Flag::Etching.take(&mut flags).then(|| Etching {
       divisibility: Tag::Divisibility.take(&mut fields, |[divisibility]| {
         let divisibility = u8::try_from(divisibility).ok()?;
@@ -84,6 +115,7 @@ impl Runestone {
         ),
       }),
       turbo: Flag::Turbo.take(&mut flags),
+      lp 
     });
 
     let mint = Tag::Mint.take(&mut fields, |[block, tx]| {
@@ -94,6 +126,38 @@ impl Runestone {
       let pointer = u32::try_from(pointer).ok()?;
       (u64::from(pointer) < u64::try_from(transaction.output.len()).unwrap()).then_some(pointer)
     });
+    let lp_id = Tag::LpId.take(&mut fields, |[id]| Some(id));
+    let mut lp = None;
+    let operation = Tag::Operation.take(&mut fields, |[operation]| {
+        Some(operation == 1)
+    }).unwrap_or_default();
+    if let Some(lp_id) = lp_id {
+
+     lp = Tag::Lp.take(&mut fields, |[asset1, asset2, balance1, balance2]| {
+      Some(LiquidityPoolData {
+        operation: if operation {
+          Some(LiquidityOperation::AddLiquidity {
+            rune_id: Rune(asset1),
+            amount_1: balance1.into(),
+            amount_2: balance2.into(),
+          })
+        } else {
+          Some(LiquidityOperation::RemoveLiquidity {
+            rune_id: Rune(asset1),
+            amount_1: balance1.into(),
+            amount_2: balance2.into(),
+          })
+        },
+        id: lp_id as u64,
+        asset1: Rune(asset1),
+        asset2: Rune(asset2),
+        balance1: balance1.into(),
+        balance2: balance2.into(),
+      })
+    });
+
+  }
+
 
     if etching
       .map(|etching| etching.supply().is_none())
@@ -123,6 +187,7 @@ impl Runestone {
       etching,
       mint,
       pointer,
+      lp,
     }))
   }
 
@@ -148,7 +213,6 @@ impl Runestone {
       Tag::Spacers.encode_option(etching.spacers, &mut payload);
       Tag::Symbol.encode_option(etching.symbol, &mut payload);
       Tag::Premine.encode_option(etching.premine, &mut payload);
-
       if let Some(terms) = etching.terms {
         Tag::Amount.encode_option(terms.amount, &mut payload);
         Tag::Cap.encode_option(terms.cap, &mut payload);
@@ -164,6 +228,8 @@ impl Runestone {
     }
 
     Tag::Pointer.encode_option(self.pointer, &mut payload);
+
+    Tag::Lp.encode_lp(self.lp, &mut payload);
 
     if !self.edicts.is_empty() {
       varint::encode_to_vec(Tag::Body.into(), &mut payload);
@@ -1127,9 +1193,25 @@ mod tests {
             height: (None, None),
           }),
           turbo: true,
+          lp: Some(LiquidityPoolData {
+            id: 1,
+            operation: None,
+            asset1: Rune(1),
+            asset2: Rune(2),
+            balance1: 100,
+            balance2: 100,
+          })
         }),
         pointer: Some(0),
         mint: Some(RuneId::new(1, 1).unwrap()),
+        lp: Some(LiquidityPoolData {
+          id: 1,
+          operation: None,
+          asset1: Rune(1),
+          asset2: Rune(2),
+          balance1: 100,
+          balance2: 100,
+        })
       }),
     );
   }
@@ -1444,6 +1526,14 @@ mod tests {
         rune: Some(Rune(u128::MAX)),
         symbol: Some('\u{10FFFF}'),
         spacers: Some(Etching::MAX_SPACERS),
+        lp: Some(LiquidityPoolData {
+          id: 1,
+          operation: None,
+          asset1: Rune(1),
+          asset2: Rune(2),
+          balance1: 100,
+          balance2: 100,
+        })
       }),
       89,
     );
@@ -1712,9 +1802,33 @@ mod tests {
             offset: (Some(15), Some(16)),
           }),
           turbo: true,
+          lp: Some(LiquidityPoolData {
+            id: 1,
+            operation: Some(LiquidityOperation::AddLiquidity {
+              rune_id: Rune(3),
+              amount_1: 100,
+              amount_2: 100,
+            }),
+            asset1: Rune(1),
+            asset2: Rune(2),
+            balance1: 100,
+            balance2: 100,
+          })
         }),
         mint: Some(RuneId::new(17, 18).unwrap()),
         pointer: Some(0),
+        lp: Some(LiquidityPoolData {
+          operation: Some(LiquidityOperation::AddLiquidity {
+            rune_id: Rune(3),
+            amount_1: 100,
+            amount_2: 100,
+          }),
+          id: 1,
+          asset1: Rune(1),
+          asset2: Rune(2),
+          balance1: 100,
+          balance2: 100,
+        })
       },
       &[
         Tag::Flags.into(),
@@ -1769,6 +1883,7 @@ mod tests {
           symbol: None,
           terms: None,
           turbo: false,
+          lp: None
         }),
         ..default()
       },
@@ -1785,6 +1900,7 @@ mod tests {
           symbol: None,
           terms: None,
           turbo: false,
+          lp: None
         }),
         ..default()
       },

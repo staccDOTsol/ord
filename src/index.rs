@@ -1,10 +1,9 @@
 use {
   self::{
     entry::{
-      Entry, HeaderValue, InscriptionEntry, InscriptionEntryValue, InscriptionIdValue,
-      OutPointValue, RuneEntryValue, RuneIdValue, SatPointValue, SatRange, TxidValue,
+      Entry, HeaderValue, InscriptionEntry, InscriptionEntryValue, InscriptionIdValue, LiquidityPoolValue, OutPointValue, RuneEntryValue, RuneIdValue, SatPointValue, SatRange, TxidValue
     },
-    event::Event,
+    event::{Event, LiquidityPoolData},
     lot::Lot,
     reorg::Reorg,
     updater::Updater,
@@ -70,6 +69,7 @@ define_table! { SEQUENCE_NUMBER_TO_RUNE_ID, u32, RuneIdValue }
 define_table! { SEQUENCE_NUMBER_TO_SATPOINT, u32, &SatPointValue }
 define_table! { STATISTIC_TO_COUNT, u64, u64 }
 define_table! { TRANSACTION_ID_TO_RUNE, &TxidValue, u128 }
+define_table! { LIQUIDITY_POOLS, u128, LiquidityPoolValue }
 define_table! { TRANSACTION_ID_TO_TRANSACTION, &TxidValue, &[u8] }
 define_table! { WRITE_TRANSACTION_STARTING_BLOCK_COUNT_TO_TIMESTAMP, u32, u128 }
 

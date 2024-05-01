@@ -1,3 +1,4 @@
+
 use super::*;
 
 pub(crate) trait Entry: Sized {
@@ -141,7 +142,7 @@ type TermsEntryValue = (
   Option<u128>,               // amount
   (Option<u64>, Option<u64>), // offset
 );
-
+pub(super) type LiquidityPoolValue = (u64, char, char, u128, u128);
 pub(super) type RuneEntryValue = (
   u64,                     // block
   u128,                    // burned

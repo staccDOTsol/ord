@@ -1,9 +1,14 @@
-use super::*;
 
+
+use ordinals::liquidity_pool::LiquidityOperation;
+
+use super::*;
 pub(super) struct RuneUpdater<'a, 'tx, 'client> {
   pub(super) block_time: u32,
   pub(super) burned: HashMap<RuneId, Lot>,
   pub(super) client: &'client Client,
+  pub(super) liquidity_pools: &'a mut Table<'tx, u128, LiquidityPoolValue>,
+
   pub(super) event_sender: Option<&'a Sender<Event>>,
   pub(super) height: u32,
   pub(super) id_to_entry: &'a mut Table<'tx, RuneIdValue, RuneEntryValue>,
@@ -17,7 +22,30 @@ pub(super) struct RuneUpdater<'a, 'tx, 'client> {
   pub(super) transaction_id_to_rune: &'a mut Table<'tx, &'static TxidValue, u128>,
 }
 
+
 impl<'a, 'tx, 'client> RuneUpdater<'a, 'tx, 'client> {
+  
+pub fn combine_ids (rune_a_id: Rune, rune_b_id: Rune) -> u64 {
+    ((rune_a_id.as_u128() << 32) | rune_b_id.as_u128()) as u64
+}
+pub fn decode_lp_tx(transaction: &Transaction) -> Result<(Rune, Rune, u128, u128), anyhow::Error> {
+    let lp_data = Runestone::decipher(transaction);
+    if lp_data.is_none() {
+      return 
+    Err(anyhow::anyhow!("Liquidity pool data not deciphered"))
+    }
+    let lp_data = lp_data.unwrap();
+    match lp_data {
+        Artifact::Runestone(runestone) => {
+            if let Some(lp) = runestone.lp {
+                Ok((lp.asset1, lp.asset2, lp.balance1, lp.balance2))
+            } else {
+                Err(anyhow::anyhow!("No liquidity pool data found in transaction"))
+            }
+        },
+        _ => Err(anyhow::anyhow!("Invalid transaction type for liquidity pool operation")),
+    }
+}
   pub(super) fn index_runes(&mut self, tx_index: u32, tx: &Transaction, txid: Txid) -> Result<()> {
     let artifact = Runestone::decipher(tx);
 
@@ -49,6 +77,28 @@ impl<'a, 'tx, 'client> RuneUpdater<'a, 'tx, 'client> {
             runestone.etching.unwrap().premine.unwrap_or_default();
         }
 
+          for lp in runestone.lp.iter() {
+          let (asset1_id, asset2_id, _balance1, _balance2) = Self::decode_lp_tx(tx)?;
+          let liquidity_pool_id = Self::combine_ids(asset1_id, asset2_id);
+         
+          match lp.operation {
+            Some(LiquidityOperation::AddLiquidity { rune_id: _, amount_1, amount_2 }) => {
+              let updated_pool = self.liquidity_pools
+                .get(&liquidity_pool_id.into())
+                .unwrap().unwrap();
+              updated_pool.value().3 += amount_1;
+              updated_pool.value().4 += amount_2;
+            },
+            Some(LiquidityOperation::RemoveLiquidity { rune_id: _, amount_1, amount_2 }) => {
+              let updated_pool = self.liquidity_pools
+                .get(&liquidity_pool_id.into())
+                .unwrap().unwrap();
+              updated_pool.value().3 -= amount_1;
+              updated_pool.value().4 -= amount_2;
+            },
+            None => {}
+          }
+        }
         for Edict { id, amount, output } in runestone.edicts.iter().copied() {
           let amount = Lot(amount);
 
@@ -489,3 +539,4 @@ impl<'a, 'tx, 'client> RuneUpdater<'a, 'tx, 'client> {
     Ok(unallocated)
   }
 }
+
